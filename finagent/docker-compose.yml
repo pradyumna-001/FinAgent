@@ -1,0 +1,57 @@
+services:
+  # 🔵 SERVICE 1: The AI Vector & Relational Storage Engine
+  postgres_vector:
+    image: pgvector/pgvector:pg16
+    container_name: finagent_postgres_vector
+    environment:
+      POSTGRES_USER: finagent
+      POSTGRES_PASSWORD: finagent_secure_pass
+      POSTGRES_DB: finagent
+    ports:
+      - "5432:5432"
+    volumes:
+      - vector_data:/var/lib/postgresql/data
+      - ./scripts/init_vector.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finagent -d finagent"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 🟢 SERVICE 2: The Agent Knowledge Graph Engine (Running natively on Postgres 18)
+  postgres_graph:
+    image: apache/age:latest
+    container_name: finagent_postgres_graph
+    environment:
+      POSTGRES_USER: finagent
+      POSTGRES_PASSWORD: finagent_secure_pass
+      POSTGRES_DB: finagent_graph
+    ports:
+      - "5433:5432" # Exposed on port 5433 locally to avoid collisions
+    volumes:
+      - graph_data:/var/lib/postgresql
+      - ./scripts/init_graph.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finagent -d finagent_graph"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: finagent_redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  vector_data:
+  graph_data:
+  redis_data:
