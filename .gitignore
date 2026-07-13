@@ -1,0 +1,20 @@
+# Dependency specifications
+node_modules/
+__pycache__/
+*.pyc
+
+# Local system configuration controls
+.env
+.env.*
+!.env.example
+
+# Local operational state directories
+docs/
+postgres_data/
+vector_data/
+graph_data/
+redis_data/
+
+# System specific caches
+.DS_Store
+Thumbs.db
