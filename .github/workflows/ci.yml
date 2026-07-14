@@ -1,0 +1,35 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        # This tells uv to look inside the subfolder for pyproject.toml
+        run: uv sync
+        working-directory: finagent
+
+      - name: Run unit tests
+        # This runs pytest inside the subfolder
+        run: uv run pytest tests/
+        working-directory: finagent
+        
