@@ -47,7 +47,7 @@ class PromptManagementService:
         required_vars = self._registry[prompt_name]
 
         for var in required_vars:
-            placeholder = f"{{var}}"
+            placeholder = f"{{{var}}}"
             if placeholder not in raw_content:
                 logger.warning(
                     f"Registered placeholder '{placeholder}' was not found in the raw content of '{file_name}'"
