@@ -8,10 +8,12 @@ dependencies = [
     "alembic>=1.18.5",
     "asyncpg>=0.31.0",
     "fastapi>=0.139.0",
+    "google-genai>=2.11.0",
     "pgvector>=0.5.0",
     "pydantic-settings>=2.14.2",
     "python-dotenv>=1.2.2",
     "sqlalchemy>=2.0.51",
+    "tavily-python>=0.7.26",
     "uvicorn>=0.51.0",
 ]
 
