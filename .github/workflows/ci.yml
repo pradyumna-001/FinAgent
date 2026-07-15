@@ -30,6 +30,6 @@ jobs:
 
       - name: Run unit tests
         # This runs pytest inside the subfolder
-        run: uv run pytest tests/
+        run: uv run --active pytest tests/
         working-directory: finagent
         
