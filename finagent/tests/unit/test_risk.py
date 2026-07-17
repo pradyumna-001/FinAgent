@@ -110,4 +110,3 @@ def test_risk_agent_node_llm_failure_appends_flag(mock_openai, mock_prompt, base
     assert updated_state["flags"][0].source == "risk_agent"
     assert updated_state["flags"][0].flag_type == "high"
     assert "OpenRouter generation, parsing, or validation failed" in updated_state["flags"][0].metadata.get("error")
-    
