@@ -25,7 +25,7 @@ class QuantOutput(BaseModel):
     ev_ebitda: Optional[float] = Field(None, description="Enterprise Value to EBITDA")
     dividend_yield: Optional[float] = Field(None, description="Dividend Yield percentage")
     momentum_signal: str = Field("neutral", description="Quantitative momentum signal: bullish, bearish, neutral")
-
+    interpretation: Optional[str] = Field(None, description="Qualitativecommentary interpreting the calculated metrics")
 
 class RiskFlag(BaseModel):
     """Specific risk metric classification with severity scale"""

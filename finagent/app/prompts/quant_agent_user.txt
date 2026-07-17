@@ -1,0 +1,9 @@
+Analyze the following calculated financial metrics for ticker {ticker}:
+
+- P/L (Price-to-Earnings): {pe_ratio}
+- EV/EBITDA: {ev_ebitda}
+- P/VPA (Price-to-Book): {pb_ratio}
+- Dividend Yield: {dividend_yield}%
+- 30-Day Variance vs IBOV: {ibov_variance_30d}&
+
+Provide a high-signal qualitative interpretation regarding what these valuation layers suggest about the asset's current entry pricing profile.
