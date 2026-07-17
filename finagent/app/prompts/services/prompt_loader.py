@@ -22,6 +22,8 @@ class PromptManagementService:
 
         self._registry: Dict[str, List[str]] = {
             "macro_agent": ["search_results"],
+            "company_agent_system": ["schema_instruction"],
+            "company_agent_user": ["ticker", "search_results"]
         }
 
     def load_prompt(self, prompt_name: str) -> PromptTemplate:

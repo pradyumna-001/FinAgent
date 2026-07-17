@@ -1,0 +1,7 @@
+Please analyse the following search results for the ticker {ticker}:
+
+---
+{search_results}
+---
+
+Extract all valid corporate events that occurred recently. Return only the structured JSON output.
