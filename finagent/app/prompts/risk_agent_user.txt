@@ -1,0 +1,3 @@
+Critically audit the consolidated pipeline context for the following asset: {ticker}
+
+{pipeline_context}
