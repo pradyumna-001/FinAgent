@@ -40,6 +40,14 @@ class Recommendation(BaseModel):
     horizon_months: int = Field(12, description="Investment horizon in months")
     thesis_summary: str = Field(..., description="Core bullet points supporting this recommendation")
 
+class EditorOutputSchema(BaseModel):
+    """Temporary schema to enforce atomic LLM extraction of both the narrative note and typed targets"""
+    morning_note: str = Field(..., description="Full morning note text in Portuguese with all required markdown sections")
+    action: str = Field(..., description="Target investment recommendation action: BUY, HOLD, SELL, UNDERWEIGHT")
+    target_weight: float = Field(..., description="Recommended portfolio weight percentage allocation")
+    horizon_months: int = Field(12, description="Investment view time horizon in months")
+    thesis_summary: str = Field(..., description="Core bullet-point synthesis supporting the investment recommendation")
+
 # 2. Main AgentState TypedDict
 
 class AgentState(TypedDict):

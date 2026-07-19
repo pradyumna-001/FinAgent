@@ -6,18 +6,18 @@ from datetime import datetime, timezone
 
 from openai import OpenAI
 
-from app.graph.state import AgentState, RiskFlag
+from app.graph.state import AgentState, Recommendation, EditorOutputSchema
 from app.utils.data_preprocessing import DataFlag
 from app.prompts.services.prompt_loader import PromptManagementService
 
-logger = logging.getLogger("finagent.agents.risk")
+logger = logging.getLogger("finagent.agents.editor")
 
-def risk_agent_node(state: AgentState) -> AgentState:
+def editor_agent_node(state: AgentState) -> AgentState:
     run_id = state.get("pipeline_run_id", "UNKNOWN_RUN")
     note_id = state.get("morning_note_id", "UNKNOWN_NOTE")
     ticker = state.get("company_ticker", "UNKNOWN_TICKER")
 
-    logger.info(f"[{run_id}][{note_id}] Starting RiskAgent analysis for {ticker}.")
+    logger.info(f"[{run_id}][{note_id}] Starting EditorAgent compilation for {ticker}...")
 
     openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
 
@@ -27,45 +27,54 @@ def risk_agent_node(state: AgentState) -> AgentState:
 
         state["flags"].append(
             DataFlag(
-                source="risk_agent",
+                source="editor_agent",
                 flag_type="high",
                 timestamp=datetime.now(timezone.utc).isoformat(),
                 metadata={"error": error_msg}
             )
         )
-        state["risk_flags"] = []
+        state["morning_note"] = None
+        state["recommendation"] = None
         return state
 
-    # Extract accumulated pipeline contexts to hand over to the adversarial analyzer
+    active_flags = state.get("flags", [])
+    failed_sources = {f.source for f in active_flags}
+
+    confidence_scores = {
+        "macro": 0.4 if "macro_agent" in failed_sources else 0.9,
+        "company": 0.4 if "company_agent" in failed_sources else 0.9,
+        "quant": 0.4 if "quant_agent" in failed_sources else 0.9,
+        "risk": 0.4 if "risk_agent" in failed_sources else 0.9,
+    }
+    state["confidence_scores"] = confidence_scores
+
     macro_ctx = state.get("macro_context")
     quant_metrics = state.get("quant_metrics")
     company_events = state.get("company_events", [])
-    active_flags = state.get("flags", [])
-
-    # Format pipeline data gaps explicitly to serve as additional threat vectors
-    data_gaps_payload = ""
-    if active_flags:
-        data_gaps_payload = "\nCRITICAL DATA GAPS DETECTED IN PIPELINE:\n" + "\n".join(
-            [f"- Source: {f.source} | Error context: {f.metadata.get('error', 'unknown')}" for f in active_flags]
-        )
-
+    risk_flags = state.get("risk_flags", [])
+    
     analysis_payload = {
         "ticker": ticker,
         "macro_context": macro_ctx.model_dump() if macro_ctx else None,
         "quant_metrics": quant_metrics.model_dump() if quant_metrics else None,
         "company_events": [e.model_dump() for e in company_events],
-        "data_gaps_and_omissions": data_gaps_payload
+        "risk_flags": [r.model_dump() for r in risk_flags],
+        "pipeline_confidence_scores": confidence_scores,
+        "has_data_gaps": len(active_flags) > 0
     }
 
     try:
         prompt_service = PromptManagementService()
-        
-        system_template = prompt_service.load_prompt("risk_agent_system")
-        user_template = prompt_service.load_prompt("risk_agent_user")
+
+        system_template = prompt_service.load_prompt("editor_agent_system")
+        user_template = prompt_service.load_prompt("editor_agent_user")
 
         schema_instruction = (
-            f"You must return a valid JSON object with a single key 'risks' containing a list of objects. "
-            f"Each object in the list must match this schema exactly: {RiskFlag.model_json_schema()}"
+            f"You must return a valid JSON object matching this schema blueprint exactly: "
+            f"{EditorOutputSchema.model_json_schema()}. "
+            f"The morning_note field must be a markdown-formatted string in Portuguese containing "
+            f"all required sections. If has_data_gaps is true or any section confidence is < 0.5, "
+            f"you MUST prepend an uppercase warning banner '⚠️ [AVISO DE LACUNA DE DADOS]' into that section."
         )
 
         system_prompt = system_template.format({"schema_instruction": schema_instruction})
@@ -80,26 +89,24 @@ def risk_agent_node(state: AgentState) -> AgentState:
 
         state["flags"].append(
             DataFlag(
-                source="risk_agent",
+                source="editor_agent",
                 flag_type="high",
                 timestamp=datetime.now(timezone.utc).isoformat(),
                 metadata={"error": fail_msg}
             )
         )
         return state
-
+    
     try:
-        logger.info(f"[{run_id}][{note_id}] Requesting structured adversarial output from OpenRouter via gpt-4o...")
+        logger.info(f"[{run_id}][{note_id}] Requesting consolidated morning note from OpenRouter...")
 
         client = OpenAI(
             api_key=openrouter_api_key,
             base_url="https://openrouter.ai/api/v1"
         )
 
-        target_model = "openrouter/free"
-
         response = client.chat.completions.create(
-            model=target_model,
+            model="openrouter/free",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -107,7 +114,7 @@ def risk_agent_node(state: AgentState) -> AgentState:
             response_format={
                 "type": "json_object"
             },
-            temperature=0.1
+            temperature=0.2
         )
 
         raw_content = response.choices[0].message.content.strip()
@@ -119,24 +126,29 @@ def risk_agent_node(state: AgentState) -> AgentState:
             cleaned_content = cleaned_content.strip()
 
         parsed_json = json.loads(cleaned_content)
-        risks_list = parsed_json.get("risks", [])
+        validated_output = EditorOutputSchema.model_validate(parsed_json)
 
-        validated_risks = [RiskFlag.model_validate(risk) for risk in risks_list]
-        state["risk_flags"].extend(validated_risks)
+        state["morning_note"] = validated_output.morning_note
+        state["recommendation"] = Recommendation(
+            action=validated_output.action,
+            target_weight=validated_output.target_weight,
+            horizon_months=validated_output.horizon_months,
+            thesis_summary=validated_output.thesis_summary
+        )
 
         if "data_freshness" not in state:
             state["data_freshness"] = {}
-        state["data_freshness"]["risk"] = datetime.now(timezone.utc).isoformat()
+        state["data_freshness"]["editor"] = datetime.now(timezone.utc).isoformat()
 
-        logger.info(f"[{run_id}][{note_id}] RiskAgent successfully completed adversarial analysis loop.")
+        logger.info(f"[{run_id}][{note_id}] EditorAgent successfully compiled the investment morning note.")
 
     except Exception as model_err:
-        fail_msg = f"OpenRouter generation, parsing, or validation failed: {str(model_err)}"
+        fail_msg = f"OpenRouter validation or distillation failed: {str(model_err)}"
         logger.error(f"[{run_id}][{note_id}] {fail_msg}")
 
         state["flags"].append(
             DataFlag(
-                source="risk_agent",
+                source="editor_agent",
                 flag_type="high",
                 timestamp=datetime.now(timezone.utc).isoformat(),
                 metadata={"error": fail_msg}

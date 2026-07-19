@@ -28,6 +28,8 @@ class PromptManagementService:
             "quant_agent_user": ["ticker", "pe_ratio", "ev_ebitda", "pb_ratio", "dividend_yield", "ibov_variance_30d"],
             "risk_agent_system": ["schema_instruction"],
             "risk_agent_user": ["ticker", "pipeline_context"],
+            "editor_agent_system": ["schema_instruction"],
+            "editor_agent_user": ["ticker", "pipeline_context"],
         }
 
     def load_prompt(self, prompt_name: str) -> PromptTemplate:

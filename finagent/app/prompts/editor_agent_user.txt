@@ -1,0 +1,4 @@
+Compile the final investment morning note and type recommendation profile for: {ticker}
+
+Upstram Context Payload:
+{pipeline_context}
