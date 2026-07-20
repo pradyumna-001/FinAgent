@@ -1,14 +1,14 @@
-import os
 import logging
+import os
 import re
 from datetime import datetime, timezone
 
-from openai import OpenAI
 from tavily import TavilyClient
 
+from app.core.config import get_llm_client, settings
 from app.graph.state import AgentState, MacroOutput
-from app.utils.data_preprocessing import DataFlag
 from app.prompts.services.prompt_loader import PromptManagementService
+from app.utils.data_preprocessing import DataFlag
 
 MONTHS_PT = {
     1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
@@ -19,23 +19,16 @@ MONTHS_PT = {
 logger = logging.getLogger("finagent.agents.macro")
 
 def macro_agent_node(state: AgentState) -> AgentState:
-    """
-    MacroAgent Node:
-    1. Gathers live Brazilian economic context using the Tavily Search API.
-    2. Synthesizes and extracts GDP, Inflation, and Interest Rates using OpenRouter (Llama 3.3 70B).
-    3. Guarantees structured JSON output mapping to our Pydantic MacroOutput schema.
-    4. Records execution metadata and handles external API failures gracefully.
-    """
     run_id = state.get("pipeline_run_id", "UNKNOWN_RUN")
     note_id = state.get("morning_note_id", "UNKNOWN_NOTE")
 
     logger.info(f"[{run_id}][{note_id}] Starting MacroAgent analysis.")
 
-    openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
-    tavily_api_key = os.getenv("TAVILY_API_KEY")
+    nvidia_api_key = os.getenv("NVIDIA_API_KEY") or settings.nvidia_api_key
+    tavily_api_key = os.getenv("TAVILY_API_KEY") or settings.tavily_api_key
 
-    if not openrouter_api_key or not tavily_api_key:
-        error_msg = "Missing API Keys. Please configure OPENROUTER_API_KEY and TAVILY_API_KEY"
+    if not nvidia_api_key or not tavily_api_key:
+        error_msg = "Missing API Keys. Please configure NVIDIA_API_KEY and TAVILY_API_KEY"
         logger.error(f"[{run_id}][{note_id}] {error_msg}")
 
         state["flags"].append(
@@ -48,7 +41,7 @@ def macro_agent_node(state: AgentState) -> AgentState:
         )
         state["macro_context"] = None
         return state
-    
+
     now = datetime.now(timezone.utc)
     month_name = MONTHS_PT[now.month]
     year_str = str(now.year)
@@ -100,16 +93,12 @@ def macro_agent_node(state: AgentState) -> AgentState:
         )
         state["macro_context"] = None
         return state
-    
-    try:
-        logger.info(f"[{run_id}][{note_id}] Requesting structured output from OpenRouter...")
-        
-        client = OpenAI(
-            api_key=openrouter_api_key,
-            base_url="https://openrouter.ai/api/v1"
-        )
 
-        target_model = "openrouter/free"
+    try:
+        logger.info(f"[{run_id}][{note_id}] Requesting structured output from NVIDIA...")
+
+        client = get_llm_client()
+        target_model = os.getenv("NVIDIA_MODEL", settings.nvidia_model)
 
         schema_instruction = (
             f"You must return a valid JSON object matching this schema: "
@@ -128,14 +117,14 @@ def macro_agent_node(state: AgentState) -> AgentState:
             temperature=0.1
         )
 
-        raw_content = response.choices[0].message.content.strip()        
+        raw_content = response.choices[0].message.content.strip()
 
         cleaned_content = raw_content
         if cleaned_content.startswith("```"):
             cleaned_content = re.sub(r"^```(?:json)?\n", "", cleaned_content, flags=re.IGNORECASE)
             cleaned_content = re.sub(r"\n```$", "", cleaned_content)
             cleaned_content = cleaned_content.strip()
-        
+
         macro_data = MacroOutput.model_validate_json(cleaned_content)
         state["macro_context"] = macro_data
 
@@ -146,7 +135,7 @@ def macro_agent_node(state: AgentState) -> AgentState:
         logger.info(f"[{run_id}][{note_id}] MacroAgent successfully completed analysis.")
 
     except Exception as model_err:
-        fail_msg = f"OpenRouter generation or validation failed: {str(model_err)}"
+        fail_msg = f"NVIDIA generation or validation failed: {str(model_err)}"
         logger.error(f"[{run_id}][{note_id}] {fail_msg}")
 
         state["flags"].append(

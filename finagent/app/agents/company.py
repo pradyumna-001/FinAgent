@@ -1,15 +1,15 @@
-import os
 import logging
+import os
 import re
 import json
 from datetime import datetime, timezone
 
-from openai import OpenAI
 from tavily import TavilyClient
 
+from app.core.config import get_llm_client, settings
 from app.graph.state import AgentState, CompanyEvent
-from app.utils.data_preprocessing import DataFlag
 from app.prompts.services.prompt_loader import PromptManagementService
+from app.utils.data_preprocessing import DataFlag
 
 MONTHS_PT = {
     1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
@@ -26,11 +26,11 @@ def company_agent_node(state: AgentState) -> AgentState:
 
     logger.info(f"[{run_id}][{note_id}] Starting CompanyAgent analysis for {ticker}.")
 
-    openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
-    tavily_api_key = os.getenv("TAVILY_API_KEY")
+    nvidia_api_key = os.getenv("NVIDIA_API_KEY") or settings.nvidia_api_key
+    tavily_api_key = os.getenv("TAVILY_API_KEY") or settings.tavily_api_key
 
-    if not openrouter_api_key or not tavily_api_key:
-        error_msg = "Missing API Keys. Please configure OPENROUTER_API_KEY and TAVILY_API_KEY"
+    if not nvidia_api_key or not tavily_api_key:
+        error_msg = "Missing API Keys. Please configure NVIDIA_API_KEY and TAVILY_API_KEY"
         logger.error(f"[{run_id}][{note_id}] {error_msg}")
 
         state["flags"].append(
@@ -43,13 +43,13 @@ def company_agent_node(state: AgentState) -> AgentState:
         )
         state["company_events"] = []
         return state
-    
+
     now = datetime.now(timezone.utc)
     month_name = MONTHS_PT[now.month]
     year_str = str(now.year)
 
     search_query = (
-        f"ticker {ticker} fatos relevantes CVM notícias"
+        f"ticker {ticker} fatos relevantes CVM notícias "
         f"InfoMoney Valor Econômico {month_name} {year_str}"
     )
 
@@ -76,10 +76,10 @@ def company_agent_node(state: AgentState) -> AgentState:
         )
         state["company_events"] = []
         return state
-    
+
     try:
         prompt_service = PromptManagementService()
-        
+
         system_template = prompt_service.load_prompt("company_agent_system")
         user_template = prompt_service.load_prompt("company_agent_user")
 
@@ -108,16 +108,12 @@ def company_agent_node(state: AgentState) -> AgentState:
         )
         state["company_events"] = []
         return state
-    
+
     try:
-        logger.info(f"[{run_id}][{note_id}] Requesting structured output from OpenRouter...")
+        logger.info(f"[{run_id}][{note_id}] Requesting structured output from NVIDIA...")
 
-        client = OpenAI(
-            api_key=openrouter_api_key,
-            base_url="https://openrouter.ai/api/v1"
-        )
-
-        target_model = "openrouter/free"
+        client = get_llm_client()
+        target_model = os.getenv("NVIDIA_MODEL", settings.nvidia_model)
 
         response = client.chat.completions.create(
             model=target_model,
@@ -152,7 +148,7 @@ def company_agent_node(state: AgentState) -> AgentState:
         logger.info(f"[{run_id}][{note_id}] CompanyAgent successfully completed analysis.")
 
     except Exception as model_err:
-        fail_msg = f"OpenRouter generation, parsing, or validation failed: {str(model_err)}"
+        fail_msg = f"NVIDIA generation, parsing, or validation failed: {str(model_err)}"
         logger.error(f"[{run_id}][{note_id}] {fail_msg}")
 
         state["flags"].append(

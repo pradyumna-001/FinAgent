@@ -1,14 +1,13 @@
-import os
 import logging
+import os
 import re
 import json
 from datetime import datetime, timezone
 
-from openai import OpenAI
-
+from app.core.config import get_llm_client, settings
 from app.graph.state import AgentState, Recommendation, EditorOutputSchema
-from app.utils.data_preprocessing import DataFlag
 from app.prompts.services.prompt_loader import PromptManagementService
+from app.utils.data_preprocessing import DataFlag
 
 logger = logging.getLogger("finagent.agents.editor")
 
@@ -19,10 +18,10 @@ def editor_agent_node(state: AgentState) -> AgentState:
 
     logger.info(f"[{run_id}][{note_id}] Starting EditorAgent compilation for {ticker}...")
 
-    openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+    nvidia_api_key = os.getenv("NVIDIA_API_KEY") or settings.nvidia_api_key
 
-    if not openrouter_api_key:
-        error_msg = "Missing API Key. Please configure OPENROUTER_API_KEY"
+    if not nvidia_api_key:
+        error_msg = "Missing API Key. Please configure NVIDIA_API_KEY"
         logger.error(f"[{run_id}][{note_id}] {error_msg}")
 
         state["flags"].append(
@@ -98,15 +97,13 @@ def editor_agent_node(state: AgentState) -> AgentState:
         return state
     
     try:
-        logger.info(f"[{run_id}][{note_id}] Requesting consolidated morning note from OpenRouter...")
+        logger.info(f"[{run_id}][{note_id}] Requesting consolidated morning note from NVIDIA...")
 
-        client = OpenAI(
-            api_key=openrouter_api_key,
-            base_url="https://openrouter.ai/api/v1"
-        )
+        client = get_llm_client()
+        target_model = os.getenv("NVIDIA_MODEL", settings.nvidia_model)
 
         response = client.chat.completions.create(
-            model="openrouter/free",
+            model=target_model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -143,7 +140,7 @@ def editor_agent_node(state: AgentState) -> AgentState:
         logger.info(f"[{run_id}][{note_id}] EditorAgent successfully compiled the investment morning note.")
 
     except Exception as model_err:
-        fail_msg = f"OpenRouter validation or distillation failed: {str(model_err)}"
+        fail_msg = f"NVIDIA validation or distillation failed: {str(model_err)}"
         logger.error(f"[{run_id}][{note_id}] {fail_msg}")
 
         state["flags"].append(

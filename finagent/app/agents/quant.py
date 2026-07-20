@@ -1,12 +1,12 @@
-import os
 import logging
+import os
 from datetime import datetime, timezone, timedelta
 import yfinance as yf
-from openai import OpenAI
 
-from app.graph.state import AgentState, QuantOutput 
-from app.utils.data_preprocessing import DataFlag
+from app.core.config import get_llm_client, settings
+from app.graph.state import AgentState, QuantOutput
 from app.prompts.services.prompt_loader import PromptManagementService
+from app.utils.data_preprocessing import DataFlag
 
 logger = logging.getLogger("finagent.agents.quant")
 
@@ -82,8 +82,8 @@ def quant_agent_node(state: AgentState) -> AgentState:
         )
         return state
 
-    openrouter_key = os.getenv("OPENROUTER_API_KEY")
-    if not openrouter_key:
+    nvidia_api_key = os.getenv("NVIDIA_API_KEY") or settings.nvidia_api_key
+    if not nvidia_api_key:
         logger.warning(f"[{run_id}][{note_id}][QuantAgent] Missing API Key. Storing raw metrics without analysis.")
         state["quant_metrics"] = QuantOutput(
             pe_ratio=pe_ratio,
@@ -108,9 +108,10 @@ def quant_agent_node(state: AgentState) -> AgentState:
             ibov_variance_30d="N/A"
         )
 
-        client = OpenAI(api_key=openrouter_key, base_url="https://openrouter.ai/api/v1")
+        client = get_llm_client()
+        target_model = os.getenv("NVIDIA_MODEL", settings.nvidia_model)
         response = client.chat.completions.create(
-            model="openrouter/free",
+            model=target_model,
             messages=[
                 {"role": "system", "content": formatted_system},
                 {"role": "user", "content": formatted_user}
