@@ -1,9 +1,33 @@
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any, TypedDict
+from typing import Dict, List, Optional, Any, Annotated
+from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
 from app.utils.data_preprocessing import DataFlag
 
-# 1. Helper Output Models (Schemas)
+
+# ======================================================================
+# 1. State Merging Reducers (Required for Parallel Execution)
+# ======================================================================
+
+def _keep_last(left: Any, right: Any) -> Any:
+    """Last-write-wins reducer for immutable correlation fields that every
+    parallel agent echoes back unchanged. Without this reducer LangGraph
+    raises INVALID_CONCURRENT_GRAPH_UPDATE when more than one node writes
+    the same scalar key in a single superstep."""
+    return right if right is not None else left
+
+
+def _merge_lists(left: List[Any], right: List[Any]) -> List[Any]:
+    return (left or []) + (right or [])
+
+
+def _merge_dicts(left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any]:
+    return {**(left or {}), **(right or {})}
+
+
+# ======================================================================
+# 2. Helper Output Models (Schemas)
+# ======================================================================
 
 class MacroOutput(BaseModel):
     """Structured macroeconomic indicators and contextual insights"""
@@ -54,22 +78,24 @@ class EditorOutputSchema(BaseModel):
 
 class AgentState(TypedDict):
     """Main state carried throughout the LangGraph milti-agent execution pipeline"""
-    pipeline_run_id: str
-    morning_note_id: str
-    manager_id: int
-    company_ticker: str
+    # Correlation fields must be last-write-wins because parallel agents echo
+    # them back unchanged on every superstep.
+    pipeline_run_id: Annotated[str, _keep_last]
+    morning_note_id: Annotated[str, _keep_last]
+    manager_id: Annotated[int, _keep_last]
+    company_ticker: Annotated[str, _keep_last]
 
     macro_context: Optional[MacroOutput]
-    company_events: List[CompanyEvent]
+    company_events: Annotated[List[CompanyEvent], _merge_lists]
     quant_metrics: Optional[QuantOutput]
-    risk_flags: List[RiskFlag]
+    risk_flags: Annotated[List[RiskFlag], _merge_lists]
 
     morning_note: Optional[str]
     recommendation: Optional[Recommendation]
 
-    confidence_scores: Dict[str, float]
-    data_freshness: Dict[str, datetime]
-    flags: List[DataFlag]
+    confidence_scores: Annotated[Dict[str, float], _merge_dicts]
+    data_freshness: Annotated[Dict[str, Any], _merge_dicts]
+    flags: Annotated[List[DataFlag], _merge_lists]
 
 # 3. State Operations & Invariants
 
