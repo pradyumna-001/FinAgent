@@ -5,7 +5,7 @@ from sqlalchemy import String, Integer, DateTime, ForeignKey, Text, CheckConstra
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
 
-from pgvector.sqlalchemy import Vector
+from pgvector.sqlalchemy import HALFVEC, Vector
 
 
 class Base(DeclarativeBase):
@@ -75,7 +75,7 @@ class MorningNote(Base):
     flags: Mapped[list[dict[str, str]]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     manager_id: Mapped[int] = mapped_column(ForeignKey("managers.id"), nullable=False, index=True)
     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), nullable=False, index=True)
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(2048), nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(HALFVEC(2048), nullable=True)
 
 
 class Recommendation(Base):
