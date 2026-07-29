@@ -14,6 +14,7 @@ dependencies = [
     "asyncpg>=0.30.0",
     "pgvector>=0.4.0",
     "testcontainers[postgres]>=4.8.0",
+    "pytest-asyncio>=1.4.0",
 ]
 
 [dependency-groups]
@@ -27,6 +28,7 @@ dev = [
 pythonpath = [
     "."
 ]
+asyncio_mode = "auto"
 
 [tool.mypy]
 plugins = ["sqlalchemy.ext.mypy.plugin"]
