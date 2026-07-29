@@ -36,3 +36,4 @@ def downgrade() -> None:
         "morning_notes",
         sa.Column("embedding", Vector(2048), nullable=True),
     )
+ 
