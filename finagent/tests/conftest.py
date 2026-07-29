@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 from collections.abc import Generator
 import os
 from pathlib import Path
@@ -6,6 +7,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
+import asyncpg
 import pytest
 from docker.errors import DockerException
 from testcontainers.community.postgres import PostgresContainer
@@ -34,3 +36,56 @@ def migrated_db_url(pg_container: PostgresContainer) -> Generator[str, None, Non
             os.environ.pop("DATABASE_URL", None)
         else:
             os.environ["DATABASE_URL"] = original_db_url
+
+
+@pytest.fixture
+def rls_role(migrated_db_url: str) -> Generator[str, None, None]:
+    admin_url = migrated_db_url.replace("postgresql+asyncpg", "postgresql", 1)
+
+    async def _admin() -> asyncpg.Connection:
+        return await asyncpg.connect(admin_url)
+
+    async def _setup() -> None:
+        conn = await _admin()
+        try:
+            await conn.execute(
+                "CREATE ROLE rls_test NOSUPERUSER NOBYPASSRLS "
+                "LOGIN PASSWORD 'rls_test_pwd'"
+            )
+            await conn.execute("GRANT USAGE ON SCHEMA public TO rls_test")
+            await conn.execute("GRANT SELECT ON morning_notes TO rls_test")
+            await conn.execute(
+                "INSERT INTO managers (id, name, email) VALUES "
+                "(2, 'Alice', 'alice@example.com'), "
+                "(3, 'Bob', 'bob@example.com')"
+            )
+            await conn.execute(
+                "INSERT INTO companies (id, ticker, name) VALUES "
+                "(10, 'AAPL', 'Apple Inc')"
+            )
+            await conn.execute(
+                "INSERT INTO portfolios (id, manager_id, name) VALUES "
+                "(100, 2, 'Alice growth'), (200, 3, 'Bob value')"
+            )
+            await conn.execute(
+                "INSERT INTO morning_notes "
+                "(portfolio_id, manager_id, company_id, note_text) VALUES "
+                "(100, 2, 10, 'note-a1'), (100, 2, 10, 'note-a2'), "
+                "(200, 3, 10, 'note-b1')"
+            )
+        finally:
+            await conn.close()
+
+    async def _teardown() -> None:
+        conn = await _admin()
+        try:
+            await conn.execute("DROP OWNED BY rls_test CASCADE")
+            await conn.execute("DROP ROLE IF EXISTS rls_test")
+        finally:
+            await conn.close()
+
+    asyncio.run(_setup())
+    try:
+        yield f"postgresql+asyncpg://rls_test:rls_test_pwd@{admin_url.split('@', 1)[1]}"
+    finally:
+        asyncio.run(_teardown())
