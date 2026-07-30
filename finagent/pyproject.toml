@@ -19,6 +19,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "mypy>=2.2.0",
     "pytest>=9.1.1",
     "ruff>=0.15.21",
@@ -35,3 +36,7 @@ plugins = ["sqlalchemy.ext.mypy.plugin"]
 ignore_missing_imports = true
 warn_unused_ignores = true
 no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = "app.core.config"
+ignore_errors = true

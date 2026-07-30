@@ -1,11 +1,11 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Text, CheckConstraint, func, text
+from sqlalchemy import String, DateTime, ForeignKey, Text, CheckConstraint, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
 
-from pgvector.sqlalchemy import HALFVEC, Vector
+from pgvector.sqlalchemy import HALFVEC
 
 
 class Base(DeclarativeBase):
