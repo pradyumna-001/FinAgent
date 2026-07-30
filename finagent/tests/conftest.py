@@ -18,7 +18,7 @@ def pg_container() -> Generator[PostgresContainer, None, None]:
     try:
         with PostgresContainer("pgvector/pgvector:pg16") as pg:
             yield pg
-    except DockerException as e:
+    except DockerException:
         pytest.skip("Docker daemon not reachable. Start Docker Desktop or configure DOCKER_HOST.")
 
 
