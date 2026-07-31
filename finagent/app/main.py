@@ -5,8 +5,6 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from app.db.session import engine
 
-from app.middleware.correlation import CorrelationMiddleware
-from app.api.routes.morning_notes import router as morning_notes_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -17,10 +15,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="FinAgent", lifespan=lifespan)
-
-
-app.add_middleware(CorrelationMiddleware)
-app.include_router(morning_notes_router)
 
 
 @app.get("/health")
