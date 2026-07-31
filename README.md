@@ -48,38 +48,39 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for setup instructions.
 ## Project Structure
 
 ```
-finagent/
-├── app/
-│   ├── api/              # FastAPI routers
-│   ├── agents/           # LangGraph agents
-│   │   ├── macro.py
-│   │   ├── company.py
-│   │   ├── quant.py
-│   │   ├── risk.py
-│   │   └── editor.py
-│   ├── graph/            # LangGraph StateGraph
-│   │   ├── state.py      # Typed AgentState
-│   │   └── pipeline.py   # Graph definition
-│   ├── memory/           # MAGMA implementation
-│   │   ├── semantic.py
-│   │   ├── temporal.py
-│   │   ├── causal.py
-│   │   └── entity.py
-│   ├── db/               # Models + migrations
-│   ├── services/         # Business logic
-│   └── workers/          # Celery tasks
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   ├── e2e/
-│   └── evals/            # Quality benchmarks
-├── docs/
-│   ├── adrs/             # Architecture Decision Records
-│   └── architecture.md
-├── docker-compose.yml
-├── DEPLOYMENT.md
-└── CLAUDE.md
+app/
+├── api/                  # FastAPI routers
+├── agents/               # LangGraph agents
+│   ├── macro.py
+│   ├── company.py
+│   ├── quant.py
+│   ├── risk.py
+│   └── editor.py
+├── graph/                # LangGraph StateGraph
+│   ├── state.py          # Typed AgentState
+│   └── pipeline.py       # Graph definition
+├── memory/               # MAGMA implementation
+│   ├── semantic.py
+│   ├── temporal.py
+│   ├── causal.py
+│   └── entity.py
+├── db/                   # Models + migrations
+├── services/             # Business logic
+└── workers/              # Celery tasks
+tests/
+├── unit/
+├── integration/
+├── e2e/
+└── evals/                # Quality benchmarks
+docs/
+├── adrs/                 # Architecture Decision Records
+└── architecture.md
+docker-compose.yml
+DEPLOYMENT.md
+CLAUDE.md
 ```
+
+> Note (2026-07-31): repo structure was flattened — `finagent/` subdirectory removed, all code moved to repo root. The layout above is the current one.
 
 ## Invariants
 
