@@ -22,6 +22,8 @@ async def trigger_pipeline(
         )
 
     response = TriggerResponse()
+    from app.services.pipeline import _PIPELINE_REGISTRY
+    _PIPELINE_REGISTRY[str(response.morning_note_id)] = str(response.pipeline_run_id)
     background.add_task(
         run_pipeline_stub,
         str(response.pipeline_run_id),
