@@ -1,12 +1,16 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+
 from app.db.session import engine
 from app.middleware.correlation import CorrelationMiddleware
 from app.api.routes.morning_notes import router as morning_notes_router
 from app.api.routes.pipeline import router as pipeline_router
+from app.api.errors import MorningNoteNotFound
 
 
 @asynccontextmanager
@@ -33,3 +37,11 @@ async def health() -> JSONResponse:
         return JSONResponse({"status": "ok", "db": "ok"})
     except SQLAlchemyError:
         return JSONResponse({"status": "degraded", "db": "unreachable"}, status_code=503)
+
+
+@app.exception_handler(MorningNoteNotFound)
+async def morning_note_not_found_handler(request, exc):
+    return JSONResponse(
+        status_code=404,
+        content={"detail": f"morning note {exc.args[0]!r} not found"}
+    )
