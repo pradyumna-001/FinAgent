@@ -50,4 +50,4 @@ async def stream_morning_note(note_id: str):
         )
         yield f"data: {payload}\n\n"
 
-    return StreamingResponse(event_stream(), media_type="text/event-stram")
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
