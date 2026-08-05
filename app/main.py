@@ -41,6 +41,7 @@ async def health() -> JSONResponse:
 
 @app.exception_handler(MorningNoteNotFound)
 async def morning_note_not_found_handler(request, exc):
+    # TODO(#19): re-evaluate log level when this becomes a polling hot path
     return JSONResponse(
         status_code=404,
         content={"detail": f"morning note {exc.args[0]!r} not found"}
