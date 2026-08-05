@@ -1,8 +1,16 @@
+import json
+
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi.responses import StreamingResponse
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.db.session import get_session
+from app.api.errors import MorningNoteNotFound
+from app.services.pipeline import _PIPELINE_REGISTRY
 
 
 router = APIRouter(prefix="/morning-notes", tags=["morning-notes"])
@@ -28,3 +36,18 @@ async def list_morning_notes(
         )
 
         return [dict(row._mapping) for row in result]
+
+
+@router.get("/{note_id}/stream")
+async def stream_morning_note(note_id: str):
+    run_id = _PIPELINE_REGISTRY.get(note_id)
+    if run_id is None:
+        raise MorningNoteNotFound(note_id)
+
+    async def event_stream():
+        payload = json.dumps(
+            {"morning_note_id": note_id, "pipeline_run_id": run_id}
+        )
+        yield f"data: {payload}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
