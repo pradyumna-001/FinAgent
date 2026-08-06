@@ -57,7 +57,7 @@ async def test_stream_known_note_returns_one_event() -> None:
             async for line in stream_resp.aiter_lines():
                 lines.append(line)
 
-        data_lines = [l for l in lines if l.startswith("data:")]
+        data_lines = [line for line in lines if line.startswith("data:")]
         assert len(data_lines) == 1
         assert note_id in data_lines[0]
 
