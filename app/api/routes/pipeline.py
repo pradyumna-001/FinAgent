@@ -1,5 +1,3 @@
-from typing import Annotated
-
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, status
 from fastapi.responses import JSONResponse
 
