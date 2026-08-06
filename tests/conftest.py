@@ -12,6 +12,15 @@ import pytest
 from docker.errors import DockerException
 from testcontainers.community.postgres import PostgresContainer
 
+os.environ.setdefault(
+    "DATABASE_URL",
+    "postgresql+asyncpg://placeholder@localhost:5432/placeholder",
+)
+os.environ.setdefault(
+    "MIGRATION_DATABASE_URL",
+    "postgresql://placeholder@localhost:5432/placeholder",
+)
+
 
 @pytest.fixture(scope="session")
 def pg_container() -> Generator[PostgresContainer, None, None]:
@@ -19,7 +28,9 @@ def pg_container() -> Generator[PostgresContainer, None, None]:
         with PostgresContainer("pgvector/pgvector:pg16") as pg:
             yield pg
     except DockerException:
-        pytest.skip("Docker daemon not reachable. Start Docker Desktop or configure DOCKER_HOST.")
+        pytest.skip(
+            "Docker daemon not reachable. Start Docker Desktop or configure DOCKER_HOST."
+        )
 
 
 @pytest.fixture(scope="session")
