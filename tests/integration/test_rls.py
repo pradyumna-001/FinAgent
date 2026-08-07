@@ -37,3 +37,71 @@ async def test_rls_filters_by_manager_id(rls_role: str) -> None:
             await _count_visible(conn)
     finally:
         await conn.close()
+
+
+async def test_rls_managers_world_readable(rls_role: str) -> None:
+    conn = await _connect_as_role(rls_role)
+    try:
+        await _set_manager_id(conn, "2")
+        assert await conn.fetchval("SELECT count(*) FROM managers") == 2
+        await _set_manager_id(conn, "3")
+        assert await conn.fetchval("SELECT count(*) FROM managers") == 2
+    finally:
+        await conn.close()
+
+
+async def test_rls_companies_world_readable(rls_role: str) -> None:
+    conn = await _connect_as_role(rls_role)
+    try:
+        await _set_manager_id(conn, "2")
+        assert await conn.fetchval("SELECT count(*) FROM companies") == 1
+        await _set_manager_id(conn, "3")
+        assert await conn.fetchval("SELECT count(*) FROM companies") == 1
+    finally:
+        await conn.close()
+
+
+async def test_rls_portfolios_isolated(rls_role: str) -> None:
+    conn = await _connect_as_role(rls_role)
+    try:
+        await _set_manager_id(conn, "2")
+        assert await conn.fetchval("SELECT count(*) FROM portfolios") == 1
+        await _set_manager_id(conn, "3")
+        assert await conn.fetchval("SELECT count(*) FROM portfolios") == 1
+    finally:
+        await conn.close()
+
+
+async def test_rls_portfolio_holdings_isolated(rls_role: str) -> None:
+    conn = await _connect_as_role(rls_role)
+    try:
+        await _set_manager_id(conn, "2")
+        assert await conn.fetchval("SELECT count(*) FROM portfolio_holdings") == 1
+        await _set_manager_id(conn, "3")
+        assert await conn.fetchval("SELECT count(*) FROM portfolio_holdings") == 1
+    finally:
+        await conn.close()
+
+
+async def test_rls_recommendations_isolated(rls_role: str) -> None:
+    conn = await _connect_as_role(rls_role)
+    try:
+        await _set_manager_id(conn, "2")
+        assert await conn.fetchval("SELECT count(*) FROM recommendations") == 1
+        await _set_manager_id(conn, "3")
+        assert await conn.fetchval("SELECT count(*) FROM recommendations") == 1
+    finally:
+        await conn.close()
+
+
+async def test_rls_recommendations_insert_cross_tenant_rejected(rls_role: str) -> None:
+    conn = await _connect_as_role(rls_role)
+    try:
+        await _set_manager_id(conn, "2")
+        with pytest.raises(asyncpg.exceptions.InsufficientPrivilegeError):
+            await conn.execute(
+                "INSERT INTO recommendations (morning_note_id, action, confidence, justification) "
+                "VALUES (3, 'buy', 0.9, 'steal')"
+            )
+    finally:
+        await conn.close()
