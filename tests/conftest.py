@@ -19,7 +19,9 @@ def pg_container() -> Generator[PostgresContainer, None, None]:
         with PostgresContainer("pgvector/pgvector:pg16") as pg:
             yield pg
     except DockerException:
-        pytest.skip("Docker daemon not reachable. Start Docker Desktop or configure DOCKER_HOST.")
+        pytest.skip(
+            "Docker daemon not reachable. Start Docker Desktop or configure DOCKER_HOST."
+        )
 
 
 @pytest.fixture(scope="session")
@@ -48,31 +50,73 @@ def rls_role(migrated_db_url: str) -> Generator[str, None, None]:
     async def _setup() -> None:
         conn = await _admin()
         try:
-            await conn.execute(
-                "CREATE ROLE rls_test NOSUPERUSER NOBYPASSRLS "
-                "LOGIN PASSWORD 'rls_test_pwd'"
-            )
+            try:
+                await conn.execute(
+                    "CREATE ROLE rls_test NOSUPERUSER NOBYPASSRLS "
+                    "LOGIN PASSWORD 'rls_test_pwd'"
+                )
+            except asyncpg.exceptions.DuplicateObjectError:
+                pass
             await conn.execute("GRANT USAGE ON SCHEMA public TO rls_test")
             await conn.execute("GRANT SELECT ON morning_notes TO rls_test")
             await conn.execute(
                 "INSERT INTO managers (id, name, email) VALUES "
                 "(2, 'Alice', 'alice@example.com'), "
-                "(3, 'Bob', 'bob@example.com')"
+                "(3, 'Bob', 'bob@example.com') "
+                "ON CONFLICT (id) DO NOTHING"
             )
             await conn.execute(
                 "INSERT INTO companies (id, ticker, name) VALUES "
-                "(10, 'AAPL', 'Apple Inc')"
+                "(10, 'AAPL', 'Apple Inc') "
+                "ON CONFLICT (id) DO NOTHING"
             )
             await conn.execute(
                 "INSERT INTO portfolios (id, manager_id, name) VALUES "
-                "(100, 2, 'Alice growth'), (200, 3, 'Bob value')"
+                "(100, 2, 'Alice growth'), (200, 3, 'Bob value') "
+                "ON CONFLICT (id) DO NOTHING"
             )
             await conn.execute(
                 "INSERT INTO morning_notes "
-                "(portfolio_id, manager_id, company_id, note_text) VALUES "
+                "(portfolio_id, manager_id, company_id, note_text) "
+                "SELECT * FROM (VALUES "
                 "(100, 2, 10, 'note-a1'), (100, 2, 10, 'note-a2'), "
-                "(200, 3, 10, 'note-b1')"
+                "(200, 3, 10, 'note-b1') "
+                ") AS v(portfolio_id, manager_id, company_id, note_text) "
+                "WHERE NOT EXISTS ("
+                "SELECT 1 FROM morning_notes mn "
+                "WHERE mn.portfolio_id = v.portfolio_id "
+                "AND mn.note_text = v.note_text"
+                ")"
             )
+            await conn.execute(
+                "INSERT INTO portfolio_holdings (portfolio_id, company_id, weight) "
+                "SELECT * FROM (VALUES "
+                "(100, 10, 0.5), (200, 10, 1.0) "
+                ") AS v(portfolio_id, company_id, weight) "
+                "WHERE NOT EXISTS ("
+                "SELECT 1 FROM portfolio_holdings ph "
+                "WHERE ph.portfolio_id = v.portfolio_id "
+                "AND ph.company_id = v.company_id"
+                ")"
+            )
+            await conn.execute(
+                "INSERT INTO recommendations "
+                "(morning_note_id, action, confidence, justification) "
+                "SELECT id, 'buy', 0.8, 'Strong fundamentals' "
+                "FROM morning_notes WHERE note_text = 'note-a1' "
+                "AND NOT EXISTS (SELECT 1 FROM recommendations r WHERE r.morning_note_id = morning_notes.id)"
+                "UNION ALL "
+                "SELECT id, 'hold', 0.6, 'Mixed signals' "
+                "FROM morning_notes WHERE note_text = 'note-b1' "
+                "AND NOT EXISTS (SELECT 1 FROM recommendations r WHERE r.morning_note_id = morning_notes.id)"
+            )
+            await conn.execute("GRANT SELECT ON managers TO rls_test")
+            await conn.execute("GRANT SELECT ON companies TO rls_test")
+            await conn.execute("GRANT SELECT ON portfolios TO rls_test")
+            await conn.execute("GRANT SELECT ON portfolio_holdings TO rls_test")
+            await conn.execute("GRANT SELECT ON recommendations TO rls_test")
+            await conn.execute("GRANT INSERT, UPDATE ON recommendations TO rls_test")
+            await conn.execute("GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO rls_test")
         finally:
             await conn.close()
 
