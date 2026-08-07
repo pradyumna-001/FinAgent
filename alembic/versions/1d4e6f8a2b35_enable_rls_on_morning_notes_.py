@@ -21,7 +21,8 @@ def upgrade() -> None:
     op.execute(
         "CREATE POLICY morning_notes_manager_isolation "
         "ON morning_notes "
-        "USING (manager_id = current_setting('app.manager_id', true)::int)"
+        "USING (manager_id = current_setting('app.manager_id', true)::int) "
+        "WITH CHECK (manager_id = current_setting('app.manager_id', true)::int)"
     )
 
 
