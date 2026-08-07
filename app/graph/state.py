@@ -79,3 +79,33 @@ def create_initial_state(
         "data_freshness": {},
         "flags": [],
     }
+
+
+class InvalidStateError(ValueError):
+    """Raised when an AgentState fails invariant validation."""
+
+
+def validate_state(state: AgentState) -> None:
+    """Validate AgentState invariants. Raises InvalidStateError on violation.
+
+    Invariants:
+    - state["manager_id"] is a positive int (RLS invariant)
+    - RiskFlag.severity values are valid Severity members (if risk_flags present)
+    - RiskFlag.probability values are in [0.0, 1.0] (if risk_flags present)
+    """
+    manager_id = state.get("manager_id")
+
+    if manager_id is None:
+        raise InvalidStateError(f"AgentState missing required field 'manager_id', got {manager_id}.")
+    if not (isinstance(manager_id, int) and manager_id > 0):
+        raise InvalidStateError(f"AgentState.manager_id must be a positive int, got {manager_id}.")
+
+    for flag in state.get("risk_flags", []):
+        severity = flag.get("severity")
+        prob = flag.get("probability")
+
+        if severity is not None and severity not in Severity.__members__.values():
+            raise InvalidStateError(f"RiskFlag.severity must be a valid Severity, got {severity!r}.")
+        if prob is not None and not 0.0 <= prob <= 1.0:
+            raise InvalidStateError(f"RiskFlag.probability must be in [0.0, 1.0], got {prob}.")
+    
