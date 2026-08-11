@@ -28,3 +28,11 @@ jobs:
 
       - name: Run unit tests
         run: uv run pytest tests/unit/ -v
+        env:
+          DATABASE_URL: postgresql+asyncpg://finagent:${POSTGRES_PASSWORD:-finagent_secure_pass}@localhost:5432/finagent
+          MIGRATION_DATABASE_URL: postgresql+psycopg://finagent:${POSTGRES_PASSWORD:-finagent_secure_pass}@localhost:5432/finagent
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_BASE_URL: https://integrate.api.nvidia.com/v1
+          NVIDIA_MODEL: openai/gpt-oss-20b
+          NVIDIA_FALLBACK_MODEL: openai/gpt-oss-20b
