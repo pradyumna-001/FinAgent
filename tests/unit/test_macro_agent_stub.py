@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch
 from app.agents.macro import macro_agent_node
-from app.graph.state import create_initial_state, DataFlag, Severity
+from app.graph.state import create_initial_state, Severity
 
 
 @pytest.mark.asyncio
