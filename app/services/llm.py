@@ -22,12 +22,12 @@ async def summarize(system: str, user: str) -> str | None:
     ]
 
     try:
-        resp = await client.chat.completions.create(model=NVIDIA_MODEL, messages=messages)
+        resp = await client.chat.completions.create(model=NVIDIA_MODEL, messages=messages)  # type: ignore
         return resp.choices[0].message.content
     
     except infra_errors:
         try:
-            resp = await client.chat.completions.create(model=NVIDIA_FALLBACK_MODEL, messages=messages)
+            resp = await client.chat.completions.create(model=NVIDIA_FALLBACK_MODEL, messages=messages)  # type: ignore
             return resp.choices[0].message.content
         except AuthenticationError:
             raise
