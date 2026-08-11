@@ -4,7 +4,7 @@ from unittest.mock import patch, AsyncMock, MagicMock
 from datetime import datetime
 
 from app.agents.macro import macro_agent_node
-from app.graph.state import create_initial_state, DataFlag, Severity
+from app.graph.state import create_initial_state, DataFlag
 
 
 def make_state():
@@ -112,7 +112,7 @@ async def test_macro_agent_logs_entry(caplog):
     """Verify the logger emits an info record with correlation IDs at entry."""
     state = make_state()
     with caplog.at_level(logging.INFO, logger="app.agents.macro"):
-        result = await macro_agent_node(state)
+        await macro_agent_node(state)
     records = [r for r in caplog.records if r.name == "app.agents.macro"]
     assert len(records) >= 1
     rec = records[0]
