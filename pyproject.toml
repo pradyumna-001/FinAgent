@@ -23,6 +23,7 @@ dev = [
     "mypy>=2.2.0",
     "pytest>=9.1.1",
     "ruff>=0.15.21",
+    "openai>=2.53.0",
 ]
 
 [tool.pytest.ini_options]
