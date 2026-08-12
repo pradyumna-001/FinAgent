@@ -1,59 +1,45 @@
+"""Stub tests covering the agent-side propagation of TavilyService errors
+that originate from bad response shapes (the contract handoff from the
+old inline parse-block guard to the new service-level guard).
+"""
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch, AsyncMock
 
 from app.agents.company import company_agent_node
-from app.graph.state import create_initial_state, Severity
+from app.graph.state import create_initial_state, DataFlag
+from app.services.tavily import TavilyResult
+from app.utils.flags import Severity
 
 
-@pytest.mark.asyncio
-async def test_company_agent_no_key():
-    with patch("app.agents.company.settings.TAVILY_API_KEY", ""):
-        state = create_initial_state(
-            manager_id=1, company_ticker="PETR4",
-            pipeline_run_id="run", morning_note_id="note",
-        )
-        result = await company_agent_node(state)
-
-    assert result["company_events"] == []
-    assert any(
-        f.source == "tavily" and f.severity == Severity.FATAL
-        for f in result["flags"]
+def make_state():
+    return create_initial_state(
+        manager_id=1, company_ticker="PETR4",
+        pipeline_run_id="run", morning_note_id="note",
     )
-    from datetime import datetime
-    assert isinstance(result["data_freshness"]["company"], datetime)
-
-
-async def _summarize_returns_none(system, user):
-    return None
 
 
 @pytest.mark.asyncio
-async def test_company_agent_all_null_fields():
-    """Tavily returns results[0] with null title/content → FATAL DataFlag, no raise."""
-    tavily_json = {
-        "results": [{"title": None, "content": None, "url": None}]
-    }
+async def test_company_agent_propagates_service_fatal_for_null_fields():
+    """Service detects null title/content and returns a FATAL DataFlag.
+    The agent must propagate it (not swallow, not re-validate), set
+    company_events to empty, and return early.
+    """
+    error = DataFlag(
+        source="tavily",
+        severity=Severity.FATAL,
+        message="Tavily returned articles with null title/content for query 'PETR4 news Brazil' - schema may have changed",
+    )
+    result = TavilyResult(articles=[], error=error)
 
-    mock_client = AsyncMock()
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = tavily_json
-    mock_resp.raise_for_status = MagicMock()
-    mock_client.post.return_value = mock_resp
-    mock_client.__aenter__.return_value = mock_client
+    with patch("app.agents.company.TavilyService") as MockService:
+        MockService.return_value.search = AsyncMock(return_value=result)
+        state = make_state()
+        res = await company_agent_node(state)
 
-    with patch("app.agents.company.settings.TAVILY_API_KEY", "dummy"):
-        with patch("app.agents.company.httpx.AsyncClient", return_value=mock_client):
-            with patch("app.agents.company.summarize", side_effect=_summarize_returns_none):
-                state = create_initial_state(
-                    manager_id=1, company_ticker="PETR4",
-                    pipeline_run_id="run-null", morning_note_id="note-null",
-                )
-                result = await company_agent_node(state)
-
-    assert result["company_events"] == []
-    assert len(result["flags"]) == 1
-    flag = result["flags"][0]
+    assert res["company_events"] == []
+    assert len(res["flags"]) == 1
+    flag = res["flags"][0]
+    assert isinstance(flag, DataFlag)
     assert flag.source == "tavily"
     assert flag.severity == Severity.FATAL
-    assert "PETR4" in flag.message
-    assert "parse-block failed" in flag.message
+    assert "PETR4 news Brazil" in flag.message
