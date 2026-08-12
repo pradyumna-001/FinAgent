@@ -78,7 +78,7 @@ async def macro_agent_node(state: AgentState) -> AgentState:
         if summary is None:
             state["flags"].append(
                 DataFlag(
-                    source="tavily",
+                    source="nvidia_nim",
                     severity=Severity.WARNING,
                     message="Summarization returned None; using raw content.",
                 )
