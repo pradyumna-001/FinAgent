@@ -19,11 +19,11 @@ class CompanyEvent(TypedDict, total=False):
 
 
 class QuantOutput(TypedDict, total=False):
-    pl: float
-    ev_ebitda: float
-    p_vpa: float
-    dividend_yield: float
-    dev_ibov: float
+    pl: float | None
+    ev_ebitda: float | None
+    p_vpa: float | None
+    dividend_yield: float | None
+    dev_ibov: float | None
     fetched_at: str
 
 
