@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
+from datetime import datetime, UTC
 
-from app.utils.flags import DataFlag
+import yfinance as yf
+
+from app.utils.flags import DataFlag, Severity
 
 
 class YfinanceError(Exception):
@@ -34,4 +38,99 @@ class YfinanceService:
         self.max_data_age_hours = max_data_age_hours
 
     async def search(self) -> YfinanceResult:
-        raise NotImplementedError
+        yf_ticker = f"{self.ticker}.SA"
+        try:
+            info = await asyncio.to_thread(lambda: yf.Ticker(yf_ticker).info)
+        except Exception as exc:
+            return YfinanceResult(
+                metrics=None,
+                error=DataFlag(
+                    source="yfinance",
+                    severity=Severity.WARNING,
+                    message=f"Yfinance request error: {exc}"
+                )
+            )
+
+        if not isinstance(info, dict):
+            return YfinanceResult(
+                metrics=None,
+                error=DataFlag(
+                    source="yfinance",
+                    severity=Severity.WARNING,
+                    message="Yfinance returned no info dict"
+                )
+            )
+
+        market_time = info.get("regularMarketTime")
+        if market_time is not None:
+            try:
+                data_age_hours = (datetime.now(UTC).timestamp() - float(market_time)) / 3600
+            except (TypeError, ValueError):
+                data_age_hours = None
+            if data_age_hours is not None and data_age_hours > self.max_data_age_hours:
+                return YfinanceResult(
+                    metrics=None,
+                    error=DataFlag(
+                        source="yfinance",
+                        severity=Severity.FATAL,
+                        message=(
+                            f"Yfinance data for {self.ticker!r} is "
+                            f"{data_age_hours:.1f}h old (max {self.max_data_age_hours}h)"
+                        )
+                    )
+                )
+
+        expected_keys = {"trailingPE", "enterpriseToEbitda", "priceToBook", "dividendYield"}
+        present_keys = {k for k, v in info.items() if v is not None} & expected_keys
+        if not present_keys:
+            return YfinanceResult(
+                metrics=None,
+                error=DataFlag(
+                    source="yfinance",
+                    severity=Severity.FATAL,
+                    message=(
+                        f"Yfinance returned no expected metrics for {self.ticker!r}"
+                        f" - schema may have changed"
+                    )
+                )
+            )
+
+        try:
+            ibov_history = await asyncio.to_thread(
+                lambda: yf.Ticker(self.market_index).history(period="2d")
+            )
+            ticker_history = await asyncio.to_thread(lambda: yf.Ticker(yf_ticker).history(period="2d"))
+        except Exception as exc:
+            return YfinanceResult(
+                metrics=None,
+                error=DataFlag(
+                    source="yfinance",
+                    severity=Severity.WARNING,
+                    message=f"Yfinance IBOV history error: {exc}"
+                )
+            )
+
+        def _one_day_return(df) -> float | None:
+            if df is None or df.empty or len(df) < 2:
+                return None
+            closes = df["Close"].tolist()
+            if closes[-2] == 0:
+                return None
+            return (closes[-1] - closes[-2]) / closes[-2]
+
+        ticker_return = _one_day_return(ticker_history)
+        ibov_return = _one_day_return(ibov_history)
+        dev_ibov = None
+        if ticker_return is not None and ibov_return is not None:
+            dev_ibov = ticker_return - ibov_return
+
+        metrics = QuoteMetrics(
+            pl=info.get("trailingPE"),
+            ev_ebitda=info.get("enterpriseToEbitda"),
+            p_vpa=info.get("priceToBook"),
+            dividend_yield=info.get("dividendYield"),
+            dev_ibov=dev_ibov,
+            fetched_at=datetime.now(UTC).isoformat()
+        )
+
+        return YfinanceResult(metrics=metrics, error=None)
