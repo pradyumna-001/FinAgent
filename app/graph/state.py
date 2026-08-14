@@ -25,6 +25,7 @@ class QuantOutput(TypedDict, total=False):
     dividend_yield: float | None
     dev_ibov: float | None
     fetched_at: str
+    market_time: datetime | None
 
 
 class RiskFlag(TypedDict, total=False):

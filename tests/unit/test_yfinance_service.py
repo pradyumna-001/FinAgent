@@ -1,3 +1,4 @@
+from datetime import datetime
 import time
 from unittest.mock import patch, MagicMock
 import pandas as pd
@@ -59,6 +60,8 @@ async def test_search_happy_path_returns_typed_metrics():
     assert result.metrics.dividend_yield == 0.04
     assert abs(result.metrics.dev_ibov - 0.08) < 1e-9
     assert result.metrics.fetched_at
+    assert result.metrics.market_time is not None
+    assert isinstance(result.metrics.market_time, datetime)
 
 
 @pytest.mark.asyncio
