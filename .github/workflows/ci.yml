@@ -36,3 +36,27 @@ jobs:
           NVIDIA_BASE_URL: https://integrate.api.nvidia.com/v1
           NVIDIA_MODEL: openai/gpt-oss-20b
           NVIDIA_FALLBACK_MODEL: openai/gpt-oss-20b
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Run agent integration tests
+        run: uv run pytest tests/integration/test_agents.py -v
+        env:
+          DATABASE_URL: postgresql+asyncpg://placeholder@localhost:5432/placeholder
+          MIGRATION_DATABASE_URL: postgresql://placeholder@localhost:5432/placeholder
+          TAVILY_API_KEY: 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
+          NVIDIA_API_KEY: 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
+          NVIDIA_BASE_URL: https://integrate.api.nvidia.com/v1
+          NVIDIA_MODEL: openai/gpt-oss-20b
+          NVIDIA_FALLBACK_MODEL: openai/gpt-oss-20b
