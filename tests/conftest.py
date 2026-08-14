@@ -2,10 +2,8 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Generator
 import os
+import subprocess
 from pathlib import Path
-
-from alembic import command
-from alembic.config import Config
 
 import asyncpg
 import pytest
@@ -36,11 +34,14 @@ def pg_container() -> Generator[PostgresContainer, None, None]:
 @pytest.fixture(scope="session")
 def migrated_db_url(pg_container: PostgresContainer) -> Generator[str, None, None]:
     url = pg_container.get_connection_url(driver="asyncpg")
-    cfg = Config(str(Path("alembic.ini").resolve()))
     original_db_url = os.environ.get("DATABASE_URL")
     os.environ["DATABASE_URL"] = url
     try:
-        command.upgrade(cfg, "head")
+        subprocess.run(
+            ["alembic", "upgrade", "head"],
+            check=True,
+            cwd=str(Path(__file__).resolve().parent.parent),
+        )
         yield url
     finally:
         if original_db_url is None:
@@ -142,3 +143,4 @@ def rls_role(migrated_db_url: str) -> Generator[str, None, None]:
         yield f"postgresql+asyncpg://rls_test:rls_test_pwd@{admin_url.split('@', 1)[1]}"
     finally:
         asyncio.run(_teardown())
+        
