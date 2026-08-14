@@ -15,14 +15,6 @@ class TavilyConfigError(TavilyError):
     """Raised when the service cannot be constructed (e.g. missing API key)"""
 
 
-class TavilyRequestError(TavilyError):
-    """Internal: HTTP/network failure. Surfaced via TavilyResult.error, never raised across the boundary"""
-
-
-class TavilyParseError(TavilyError):
-    """Internal: bad response shape. Surfaced via TavilyResult.error, never raised across the boundary."""
-
-
 @dataclass(frozen=True)
 class TavilyArticle:
     title: str | None
