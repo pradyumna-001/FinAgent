@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import patch, AsyncMock
 
 import pytest 
@@ -26,7 +26,8 @@ def _metrics(**overrides):
         "p_vpa": 1.3,
         "dividend_yield": 0.04,
         "dev_ibov": 0.08,
-        "fetched_at": datetime.now().isoformat()
+        "fetched_at": datetime.now().isoformat(),
+        "market_time": None
     }
     base.update(overrides)
     return QuoteMetrics(**base)
@@ -104,4 +105,25 @@ async def test_quant_agent_logs_entry(caplog):
         assert records[0].pipeline_run_id == "run-1"
         assert records[0].morning_note_id == "note-1"
         assert records[0].manager_id == 1
-        
+
+
+@pytest.mark.asyncio
+async def test_quant_agent_market_time_populated_from_metrics():
+    market_time = datetime(2026, 8, 14, 13, 30, tzinfo=UTC)
+    result = YfinanceResult(metrics=_metrics(market_time=market_time), error=None)
+    with patch("app.agents.quant.YfinanceService") as MockSvc:
+        MockSvc.return_value.search = AsyncMock(return_value=result)
+        res = await quant_agent_node(make_state())
+
+    assert res["quant_metrics"]["market_time"] == market_time
+
+
+@pytest.mark.asyncio
+async def test_quant_agent_data_freshness_uses_data_time_when_present():
+    market_time = datetime(2026, 8, 14, 13, 30, tzinfo=UTC)
+    result = YfinanceResult(metrics=_metrics(market_time=market_time), error=None)
+    with patch("app.agents.quant.YfinanceService") as MockSvc:
+        MockSvc.return_value.search = AsyncMock(return_value=result)
+        res = await quant_agent_node(make_state())
+
+    assert res["data_freshness"]["quant"] == market_time

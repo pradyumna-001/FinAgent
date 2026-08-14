@@ -21,6 +21,7 @@ class QuoteMetrics:
     dividend_yield: float | None
     dev_ibov: float | None
     fetched_at: str
+    market_time: datetime | None
 
 
 @dataclass(frozen=True)
@@ -61,13 +62,17 @@ class YfinanceService:
                 )
             )
 
-        market_time = info.get("regularMarketTime")
-        if market_time is not None:
+        market_time_raw = info.get("regularMarketTime")
+        market_time_dt: datetime | None = None
+        if market_time_raw is not None:
             try:
-                data_age_hours = (datetime.now(UTC).timestamp() - float(market_time)) / 3600
+                market_time_dt = datetime.fromtimestamp(float(market_time_raw), UTC)
             except (TypeError, ValueError):
-                data_age_hours = None
-            if data_age_hours is not None and data_age_hours > self.max_data_age_hours:
+                market_time_dt = None
+                
+        if market_time_dt is not None:
+            data_age_hours = (datetime.now(UTC).timestamp() - market_time_dt.timestamp()) / 3600
+            if data_age_hours > self.max_data_age_hours:
                 return YfinanceResult(
                     metrics=None,
                     error=DataFlag(
@@ -130,7 +135,8 @@ class YfinanceService:
             p_vpa=info.get("priceToBook"),
             dividend_yield=info.get("dividendYield"),
             dev_ibov=dev_ibov,
-            fetched_at=datetime.now(UTC).isoformat()
+            fetched_at=datetime.now(UTC).isoformat(),
+            market_time=market_time_dt,
         )
 
         return YfinanceResult(metrics=metrics, error=None)
