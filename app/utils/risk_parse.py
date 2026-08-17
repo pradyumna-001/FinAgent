@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import get_args
+from typing import cast, get_args, Literal
 
 from app.graph.state import RiskFlag
 from app.utils.flags import Severity
@@ -76,7 +76,7 @@ def parse_risk_json(text: str | None) -> tuple[list[RiskFlag], int]:
         flags.append(
             RiskFlag(
                 probability=float(prob),
-                impact=impact,
+                impact=cast(Literal["low", "medium", "high"], impact),
                 description=desc,
                 severity=sev,
             )
