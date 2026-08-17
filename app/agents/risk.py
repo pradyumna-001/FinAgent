@@ -1,5 +1,4 @@
 from datetime import datetime, UTC
-import json
 import logging
 
 from app.prompts.risk import RISK_PROMPTS
