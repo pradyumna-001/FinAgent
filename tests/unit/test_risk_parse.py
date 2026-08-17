@@ -1,5 +1,3 @@
-import json
-
 from app.utils.risk_parse import parse_risk_json
 
 def test_parse_risk_valid_single_risk() -> None:
