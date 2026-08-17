@@ -1,9 +1,12 @@
 from datetime import datetime, UTC
+import json
 import logging
 
 from app.prompts.risk import RISK_PROMPTS
 from app.services.llm import summarize
 from app.graph.state import AgentState
+from app.utils.risk_parse import parse_risk_json
+from app.utils.flags import DataFlag, Severity
 
 
 logger = logging.getLogger(__name__)
@@ -34,6 +37,15 @@ async def risk_agent_node(state: AgentState) -> AgentState:
         user=user_prompt
     )
 
-    state["risk_flags"] = []
+    flags, dropped = parse_risk_json(raw_text)
+    state["risk_flags"] = flags
+    if dropped > 0 or raw_text is None:
+        state["flags"].append(
+            DataFlag(
+                source="risk_parse",
+                severity=Severity.WARNING,
+                message=f"{dropped} risk flag(s) dropped during parsing",
+            )
+        )
     state["data_freshness"]["risk"] = datetime.now(UTC)
     return state
