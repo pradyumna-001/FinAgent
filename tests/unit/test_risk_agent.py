@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from app.agents.risk import risk_agent_node
 from app.graph.state import create_initial_state
-from app.utils.flags import DataFlag, Severity
+from app.utils.flags import Severity
 
 
 def make_state():
