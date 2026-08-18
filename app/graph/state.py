@@ -116,3 +116,4 @@ class InvalidStateError(ValueError):
                 raise InvalidStateError(
                     f"RiskFlag.probability must be in [0.0, 1.0], got {prob}."
                 )
+            
