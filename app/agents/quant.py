@@ -9,7 +9,7 @@ from app.utils.flags import DataFlag, Severity
 logger = logging.getLogger(__name__)
 
 
-async def quant_agent_node(state: AgentState) -> AgentState:
+async def quant_agent_node(state: AgentState) -> dict:
     """Pull financial metrics via YfinanceService, build a QuantOutput, and update
     AgentState in-place. Failures append a DataFlag and return with quant_metrics=None -
     never raises.
@@ -23,22 +23,32 @@ async def quant_agent_node(state: AgentState) -> AgentState:
         },
     )
 
+    new_flags = []
+
     try:
         yfinance_service = YfinanceService(ticker=state["company_ticker"])
     except YfinanceError as exc:
-        state["flags"].append(
-            DataFlag(source="yfinance", severity=Severity.FATAL, message=str(exc))
+        new_flags.append(
+            DataFlag(
+                source="yfinance", 
+                severity=Severity.FATAL, 
+                message=str(exc)
+            )
         )
-        state["quant_metrics"] = None
-        state["data_freshness"]["quant"] = datetime.now(UTC)
-        return state
+        return {
+            "quant_metrics": None,
+            "data_freshness": {"quant": datetime.now(UTC)},
+            "flags": new_flags
+        }
 
     result = await yfinance_service.search()
     if result.error:
-        state["flags"].append(result.error)
-        state["quant_metrics"] = None
-        state["data_freshness"]["quant"] = datetime.now(UTC)
-        return state
+        new_flags.append(result.error)
+        return {
+            "quant_metrics": None,
+            "data_freshness": {"quant": datetime.now(UTC)},
+            "flags": new_flags
+        }
 
     assert result.metrics is not None
 
@@ -52,10 +62,14 @@ async def quant_agent_node(state: AgentState) -> AgentState:
         "market_time": result.metrics.market_time,
     }
 
-    state["quant_metrics"] = quant_metrics
-    state["data_freshness"]["quant"] = (
-        result.metrics.market_time
-        if result.metrics.market_time is not None
-        else datetime.now(UTC)
-    )
-    return state
+    return {
+        "quant_metrics": quant_metrics,
+        "data_freshness": {
+            "quant": (
+                result.metrics.market_time 
+                if result.metrics.market_time is not None 
+                else datetime.now(UTC)
+            )
+        },
+        "flags": new_flags
+    }

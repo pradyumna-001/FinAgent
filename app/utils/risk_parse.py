@@ -78,7 +78,7 @@ def parse_risk_json(text: str | None) -> tuple[list[RiskFlag], int]:
                 probability=float(prob),
                 impact=cast(Literal["low", "medium", "high"], impact),
                 description=desc,
-                severity=sev,
+                severity=Severity(sev),
             )
         )
     return flags, dropped

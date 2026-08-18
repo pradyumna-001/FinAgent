@@ -29,7 +29,7 @@ async def test_risk_agent_happy_path() -> None:
         assert rf["probability"] == 0.7
         assert rf["impact"] == "high"
         assert rf["description"] == "Market crash risk"
-        assert rf["severity"] == "warning"
+        assert rf["severity"] == Severity.WARNING
         assert state["data_freshness"]["risk"] is not None
 
 
