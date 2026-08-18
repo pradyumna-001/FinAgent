@@ -13,7 +13,7 @@ from app.utils.flags import DataFlag, Severity
 logger = logging.getLogger(__name__)
 
 
-async def company_agent_node(state: AgentState) -> AgentState:
+async def company_agent_node(state: AgentState) -> dict:
     """Pull company news via TavilyService for ticker in state, extract
     CompanyEvents via NVIDIA NIM, and update AgentState in-place.
     Failures append a DataFlag and return - never raises.
@@ -27,19 +27,23 @@ async def company_agent_node(state: AgentState) -> AgentState:
         }
     )
 
+    new_flags = []
+
     try:
         tavily = TavilyService(api_key=settings.TAVILY_API_KEY)
     except TavilyConfigError as exc:
-        state["flags"].append(
+        new_flags.append(
             DataFlag(
                 source="tavily",
                 severity=Severity.FATAL,
                 message=str(exc)
             )
         )
-        state["company_events"] = []
-        state["data_freshness"]["company"] = datetime.now(UTC)
-        return state
+        return {
+            "company_events": [],
+            "data_freshness": {"company": datetime.now(UTC)},
+            "flags": new_flags
+        }
 
     ticker = state["company_ticker"]
     result = await tavily.search(
@@ -52,10 +56,12 @@ async def company_agent_node(state: AgentState) -> AgentState:
         max_results=10
     )
     if result.error:
-        state["flags"].append(result.error)
-        state["company_events"] = []
-        state["data_freshness"]["company"] = datetime.now(UTC)
-        return state
+        new_flags.append(result.error)
+        return {
+            "company_events": [],
+            "data_freshness": {"company": datetime.now(UTC)},
+            "flags": new_flags
+        }
 
     company_events: list[CompanyEvent] = []
     if result.articles:
@@ -68,7 +74,7 @@ async def company_agent_node(state: AgentState) -> AgentState:
         )
 
         if summary is None:
-            state["flags"].append(
+            new_flags.append(
                 DataFlag(
                     source="nvidia_nim",
                     severity=Severity.WARNING,
@@ -86,6 +92,8 @@ async def company_agent_node(state: AgentState) -> AgentState:
             )
         )
 
-    state["company_events"] = company_events
-    state["data_freshness"]["company"] = datetime.now(UTC)
-    return state
+    return {
+        "company_events": company_events,
+        "data_freshness": {"company": datetime.now(UTC)},
+        "flags": new_flags
+    }

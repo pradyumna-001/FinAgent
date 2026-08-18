@@ -11,7 +11,7 @@ from app.utils.flags import DataFlag, Severity
 logger = logging.getLogger(__name__)
 
 
-async def risk_agent_node(state: AgentState) -> AgentState:
+async def risk_agent_node(state: AgentState) -> dict:
     """Read upstream agent products, call the LLM for adversarial risk analysis, and stage 
     the raw response for parsing. Failures append a DataFlag and return with risk_flags=[] - never raises.
     """
@@ -37,14 +37,17 @@ async def risk_agent_node(state: AgentState) -> AgentState:
     )
 
     flags, dropped = parse_risk_json(raw_text)
-    state["risk_flags"] = flags
+    new_flags = []
     if dropped > 0 or raw_text is None:
-        state["flags"].append(
+        new_flags.append(
             DataFlag(
                 source="risk_parse",
                 severity=Severity.WARNING,
                 message=f"{dropped} risk flag(s) dropped during parsing",
             )
         )
-    state["data_freshness"]["risk"] = datetime.now(UTC)
-    return state
+    return {
+        "risk_flags": flags,
+        "data_freshness": {"risk": datetime.now(UTC)},
+        "flags": new_flags
+    }
