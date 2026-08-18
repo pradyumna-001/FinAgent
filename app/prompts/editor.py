@@ -8,7 +8,7 @@ from app.utils.flags import DataFlag
 class EditorPrompts:
     system: str
 
-    def build_user_prompt(
+    def build_user_prompt(  # type: ignore[return]
             self,
             *,
             macro_context: MacroOutput | None,
@@ -39,6 +39,7 @@ class EditorPrompts:
                 lines.append("\n## Lacunas de Dados (DataFlags)")
                 for f in data_flags:
                     lines.append(f"- [{f.severity.value}] {f.source}: {f.message}")
+
             lines.append(
                 "\n\nGere o morning note completo em português com as seções: "
                 "Contexto Macro, Eventos, Métricas, Riscos, Recomendação. "
@@ -46,6 +47,7 @@ class EditorPrompts:
                 "morning_note (str), recommendation (objeto com action, justification, confidence), "
                 "confidence_scores (objeto com macro, company, quant, risk, overall)."
             )
+
             return "\n".join(lines)
 
 

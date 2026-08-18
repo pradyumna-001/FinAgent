@@ -38,13 +38,13 @@ async def summarize(system: str, user: str) -> str | None:
 
 async def summarize_nemotron(system: str, user: str) -> str | None:
     infra_errors = (APIConnectionError, APITimeoutError, RateLimitError)
-    messages = [
+    messages: list[dict[str, str]] = [
         {"role": "system", "content": system},
         {"role": "user", "content": user}
     ]
 
     try:
-        resp = await client.chat.completions.create(model=NEMOTRON_MODEL, messages=messages)
+        resp = await client.chat.completions.create(model=NEMOTRON_MODEL, messages=messages)  # type: ignore[arg-type]
         return resp.choices[0].message.content
 
     except infra_errors:
