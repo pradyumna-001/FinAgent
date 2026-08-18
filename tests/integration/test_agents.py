@@ -26,11 +26,21 @@ async def test_pipeline_all_agents_fail_shares_state():
     land per agent; state stays internally consistent."""
     state = make_state()
 
+    def merge_result(state: dict, result: dict) -> None:
+        """Apply same reducer logic as LangGraph: flags concat, data_freshness merge."""
+        if "flags" in result:
+            state["flags"].extend(result["flags"])
+        if "data_freshness" in result:
+            state["data_freshness"].update(result["data_freshness"])
+        for k, v in result.items():
+            if k not in ("flags", "data_freshness"):
+                state[k] = v
+
     err = DataFlag(source="tavily", severity=Severity.WARNING, message="Tavily 500")
     with patch("app.agents.macro.TavilyService") as M, \
          patch("app.agents.macro.summarize", new=AsyncMock(return_value="")):
         M.return_value.search = AsyncMock(return_value=TavilyResult(articles=[], error=err))
-        state = await macro_agent_node(state)
+        merge_result(state, await macro_agent_node(state))
     assert state["macro_context"] is None
     assert len(state["flags"]) == 1
     assert "macro" in state["data_freshness"]
@@ -38,7 +48,7 @@ async def test_pipeline_all_agents_fail_shares_state():
     with patch("app.agents.company.TavilyService") as C, \
          patch("app.agents.company.summarize", new=AsyncMock(return_value="")):
         C.return_value.search = AsyncMock(return_value=TavilyResult(articles=[], error=err))
-        state = await company_agent_node(state)
+        merge_result(state, await company_agent_node(state))
     assert state["company_events"] == []
     assert len(state["flags"]) == 2
     assert "company" in state["data_freshness"]
@@ -50,7 +60,7 @@ async def test_pipeline_all_agents_fail_shares_state():
     )
     with patch("app.agents.quant.YfinanceService") as Q:
         Q.return_value.search = AsyncMock(return_value=YfinanceResult(metrics=None, error=stale_err))
-        state = await quant_agent_node(state)
+        merge_result(state, await quant_agent_node(state))
     assert state["quant_metrics"] is None
     assert state["flags"][-1].source == "yfinance"
     assert "48" in state["flags"][-1].message
