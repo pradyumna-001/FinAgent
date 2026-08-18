@@ -6,15 +6,14 @@ import logging
 from app.graph.state import AgentState
 from app.prompts.editor import EDITOR_PROMPTS
 from app.services.llm import summarize_nemotron
+from app.utils.editor_confidence import apply_confidence_penalties
 from app.utils.flags import DataFlag, Severity
-
 
 
 logger = logging.getLogger(__name__)
 
 
 async def editor_agent_node(state: AgentState) -> AgentState:
-    # TODO: logger
     logger.info(
         "editor_agent_start",
         extra={
@@ -23,12 +22,7 @@ async def editor_agent_node(state: AgentState) -> AgentState:
             "manager_id": state["manager_id"]
         }
     )
-    # macro_context: MacroOutput | None,
-    # company_events: list[CompanyEvent],
-    # quant_metrics: QuantOutput | None,
-    # risk_flags: list[RiskFlag],
-    # data_flags: list[DataFlag]
-    # TODO: connect with service
+
     user_prompt = EDITOR_PROMPTS.build_user_prompt(
         macro_context=state.get("macro_context"),
         company_events=state.get("company_events", []),
@@ -42,7 +36,6 @@ async def editor_agent_node(state: AgentState) -> AgentState:
         user=user_prompt
     )
 
-    # TODO: check for errors returned by the service and deal
     if raw_text is None:
         state["flags"].append(
             DataFlag(
@@ -57,8 +50,6 @@ async def editor_agent_node(state: AgentState) -> AgentState:
         state["data_freshness"]["editor"] = datetime.now(UTC)
         return state
 
-
-    # TODO: prepare th output
     try:
         parsed = json.loads(raw_text)
     except json.JSONDecodeError:
@@ -121,8 +112,12 @@ async def editor_agent_node(state: AgentState) -> AgentState:
         state["data_freshness"]["editor"] = datetime.now(UTC)
         return state
 
-    state["morning_note"] = parsed["morning_note"]
+    penalized_scores, warnings = apply_confidence_penalties(parsed["confidence_scores"], state["flags"])
+    morning_note = parsed["morning_note"]
+    if warnings:
+        morning_note = "\n\n".join(warnings) + "\n\n" + morning_note
+    state["confidence_scores"] = penalized_scores
+    state["morning_note"] = morning_note
     state["recommendation"] = parsed["recommendation"]
-    state["confidence_scores"] = parsed["confidence_scores"]
     state["data_freshness"]["editor"] = datetime.now(UTC)
     return state
