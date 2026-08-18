@@ -19,3 +19,6 @@ temp/
 # System specific caches
 .DS_Store
 Thumbs.db
+
+# opencode local state
+.opencode/
