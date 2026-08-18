@@ -1,5 +1,6 @@
 from datetime import datetime
-from typing import TypedDict, Literal
+from operator import add
+from typing import TypedDict, Literal, Annotated
 
 from app.utils.flags import DataFlag, Severity
 
@@ -42,6 +43,10 @@ class RecommendationPayload(TypedDict, total=False):
     created_at: str
 
 
+def merge_dicts(left: dict, right: dict) -> dict:
+    return {**left, **right}
+
+
 class AgentState(TypedDict):
     pipeline_run_id: str
     morning_note_id: str
@@ -54,8 +59,8 @@ class AgentState(TypedDict):
     morning_note: str | None
     recommendation: RecommendationPayload | None
     confidence_scores: dict[str, float]
-    data_freshness: dict[str, datetime]
-    flags: list[DataFlag]
+    data_freshness: Annotated[dict[str, datetime], merge_dicts]
+    flags: Annotated[list[DataFlag], add]
 
 
 def create_initial_state(
@@ -116,4 +121,4 @@ class InvalidStateError(ValueError):
                 raise InvalidStateError(
                     f"RiskFlag.probability must be in [0.0, 1.0], got {prob}."
                 )
-            
+
