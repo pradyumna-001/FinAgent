@@ -1,3 +1,4 @@
+from app.utils.flags import Severity
 from app.utils.risk_parse import parse_risk_json
 
 def test_parse_risk_valid_single_risk() -> None:
@@ -21,8 +22,7 @@ def test_parse_risk_three_risks() -> None:
     flags, dropped = parse_risk_json(text)
     assert dropped == 0
     assert len(flags) == 3
-    assert [f["severity"] for f in flags] == ["info", "warning", "fatal"]
-
+    assert [f["severity"] for f in flags] == [Severity.INFO, Severity.WARNING, Severity.FATAL]
 
 def test_parse_risk_wrapped_in_prose() -> None:
     text = (
