@@ -16,5 +16,6 @@ class Settings(BaseSettings):
     NVIDIA_BASE_URL: str = Field(..., description="NVIDIA base URL")
     NVIDIA_MODEL: str = Field(..., description="Primary NVIDIA model")
     NVIDIA_FALLBACK_MODEL: str = Field(..., description="Fallback model")
+    NVIDIA_NEMOTRON_MODEL: str = Field(..., description="Nemotron 3 Ultra model for editor agent")
     
 settings = Settings()
