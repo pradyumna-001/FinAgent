@@ -1,4 +1,4 @@
-from app.utils.flags import DataFlag, Severity
+from app.utils.flags import DataFlag
 
 
 SECTION_SOURCE_MAP: dict[str, list[str]] = {
@@ -19,7 +19,7 @@ def apply_confidence_penalties(
     """
     updated_scores = confidence_scores.copy()
     warnings: list[str] = []
-    
+
     for section, sources in SECTION_SOURCE_MAP.items():
         flagged = any(flag.source in sources for flag in data_flags)
         if flagged:
