@@ -25,3 +25,8 @@ Thumbs.db
 
 # IDE settings
 .vscode/
+
+# Local PR/docs
+.pr_body.md
+.pr_body_en.md
+3-month-plan.md
