@@ -13,7 +13,7 @@ from app.utils.flags import DataFlag, Severity
 logger = logging.getLogger(__name__)
 
 
-async def macro_agent_node(state: AgentState) -> AgentState:
+async def macro_agent_node(state: AgentState) -> dict:
     """Pull macro-news via TavilyService, build a MacroOutput, and update
     AgentState in-place. Failures append a DataFlag and returns
     with macro_context=None - never raises.
@@ -27,19 +27,23 @@ async def macro_agent_node(state: AgentState) -> AgentState:
         }
     )
 
+    new_flags = []
+
     try:
         tavily = TavilyService(api_key=settings.TAVILY_API_KEY)
     except TavilyConfigError as exc:
-        state["flags"].append(
+        new_flags.append(
             DataFlag(
                 source="tavily",
                 severity=Severity.FATAL,
                 message=str(exc)
             )
         )
-        state["macro_context"] = None
-        state["data_freshness"]["macro"] = datetime.now(UTC)
-        return state
+        return {
+            "macro_context": None,
+            "data_freshness": {"macro": datetime.now(UTC)},
+            "flags": new_flags
+        }
 
     result = await tavily.search(
         query="macro news Brazil",
@@ -52,10 +56,12 @@ async def macro_agent_node(state: AgentState) -> AgentState:
         max_results=10
     )
     if result.error:
-        state["flags"].append(result.error)
-        state["macro_context"] = None
-        state["data_freshness"]["macro"] = datetime.now(UTC)
-        return state
+        new_flags.append(result.error)
+        return {
+            "macro_context": None,
+            "data_freshness": {"macro": datetime.now(UTC)},
+            "flags": new_flags
+        }
 
     macro_output: MacroOutput | None = None
     if result.articles:
@@ -68,7 +74,7 @@ async def macro_agent_node(state: AgentState) -> AgentState:
         )
 
         if summary is None:
-            state["flags"].append(
+            new_flags.append(
                 DataFlag(
                     source="nvidia_nim",
                     severity=Severity.WARNING,
@@ -84,6 +90,8 @@ async def macro_agent_node(state: AgentState) -> AgentState:
             fetched_at=datetime.now(UTC).isoformat()
         )
 
-    state["macro_context"] = macro_output
-    state["data_freshness"]["macro"] = datetime.now(UTC)
-    return state
+    return {
+        "macro_context": macro_output,
+        "data_freshness": {"macro": datetime.now(UTC)},
+        "flags": new_flags
+    }
