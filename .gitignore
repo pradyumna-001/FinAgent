@@ -9,7 +9,6 @@ __pycache__/
 !.env.example
 
 # Local operational state directories
-docs/
 postgres_data/
 vector_data/
 graph_data/
