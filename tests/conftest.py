@@ -41,7 +41,7 @@ def migrated_db_url(pg_container: PostgresContainer) -> Generator[str, None, Non
     os.environ["MIGRATION_DATABASE_URL"] = admin_url
     try:
         subprocess.run(
-            ["alembic", "upgrade", "head"],
+            ["alembic", "upgrade", "heads"],
             check=True,
             cwd=str(Path(__file__).resolve().parent.parent),
         )
