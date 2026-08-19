@@ -182,4 +182,4 @@ See [`docs/issues.md`](docs/issues.md) for full 30-issue, 8-week plan.
 
 ## License
 
-Proprietary — BTG Pactual internal use.
+MIT License — Personal project by [@pradyumna-001](https://github.com/pradyumna-001). Target users: asset management professionals.

@@ -2,8 +2,10 @@
 
 ## Project Identity
 
-**FinAgent** — Multi-agent AI financial analyst for Brazilian asset managers (BTG Pactual).
+**FinAgent** — Multi-agent AI financial analyst for Brazilian asset managers.
 Generates daily morning notes + buy/sell/keep recommendations for B3 equities at 6:00 AM BRT.
+
+*Personal project by [@pradyumna-001](https://github.com/pradyumna-001). Target users: asset management professionals.*
 
 ## Tech Stack (Current)
 
