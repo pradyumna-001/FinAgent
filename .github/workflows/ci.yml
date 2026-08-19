@@ -40,6 +40,21 @@ jobs:
 
   integration-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: finagent
+          POSTGRES_PASSWORD: finagent_secure_pass
+          POSTGRES_DB: finagent
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U finagent -d finagent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - uses: actions/checkout@v4
 
@@ -51,11 +66,26 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
 
-      - name: Run agent integration tests
-        run: uv run pytest tests/integration/test_agents.py -v
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          for i in {1..30}; do
+            pg_isready -h localhost -p 5432 -U finagent -d finagent && break
+            sleep 1
+          done
+
+      - name: Install psycopg for migrations
+        run: uv pip install psycopg[binary]
+
+      - name: Run migrations
+        run: |
+          export MIGRATION_DATABASE_URL=postgresql+psycopg://finagent:finagent_secure_pass@localhost:5432/finagent
+          uv run alembic upgrade head
+
+      - name: Run integration tests
+        run: uv run pytest tests/integration/ -v
         env:
-          DATABASE_URL: postgresql+asyncpg://placeholder@localhost:5432/placeholder
-          MIGRATION_DATABASE_URL: postgresql://placeholder@localhost:5432/placeholder
+          DATABASE_URL: postgresql+asyncpg://finagent:finagent_secure_pass@localhost:5432/finagent
+          MIGRATION_DATABASE_URL: postgresql+psycopg://finagent:finagent_secure_pass@localhost:5432/finagent
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           NVIDIA_BASE_URL: https://integrate.api.nvidia.com/v1
