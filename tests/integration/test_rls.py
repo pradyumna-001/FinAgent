@@ -19,8 +19,8 @@ async def _count_visible(conn: asyncpg.Connection) -> int:
     return await conn.fetchval("SELECT count(*) FROM morning_notes")
 
 
-async def test_rls_filters_by_manager_id(rls_role: str) -> None:
-    conn = await _connect_as_role(rls_role)
+async def test_rls_filters_by_manager_id(finagent_app_role: str) -> None:
+    conn = await _connect_as_role(finagent_app_role)
     try:
         await _set_manager_id(conn, "2")
         assert await _count_visible(conn) == 2
@@ -39,8 +39,8 @@ async def test_rls_filters_by_manager_id(rls_role: str) -> None:
         await conn.close()
 
 
-async def test_rls_managers_world_readable(rls_role: str) -> None:
-    conn = await _connect_as_role(rls_role)
+async def test_rls_managers_world_readable(finagent_app_role: str) -> None:
+    conn = await _connect_as_role(finagent_app_role)
     try:
         await _set_manager_id(conn, "2")
         assert await conn.fetchval("SELECT count(*) FROM managers") == 2
@@ -50,8 +50,8 @@ async def test_rls_managers_world_readable(rls_role: str) -> None:
         await conn.close()
 
 
-async def test_rls_companies_world_readable(rls_role: str) -> None:
-    conn = await _connect_as_role(rls_role)
+async def test_rls_companies_world_readable(finagent_app_role: str) -> None:
+    conn = await _connect_as_role(finagent_app_role)
     try:
         await _set_manager_id(conn, "2")
         assert await conn.fetchval("SELECT count(*) FROM companies") == 1
@@ -61,8 +61,8 @@ async def test_rls_companies_world_readable(rls_role: str) -> None:
         await conn.close()
 
 
-async def test_rls_portfolios_isolated(rls_role: str) -> None:
-    conn = await _connect_as_role(rls_role)
+async def test_rls_portfolios_isolated(finagent_app_role: str) -> None:
+    conn = await _connect_as_role(finagent_app_role)
     try:
         await _set_manager_id(conn, "2")
         assert await conn.fetchval("SELECT count(*) FROM portfolios") == 1
@@ -72,8 +72,8 @@ async def test_rls_portfolios_isolated(rls_role: str) -> None:
         await conn.close()
 
 
-async def test_rls_portfolio_holdings_isolated(rls_role: str) -> None:
-    conn = await _connect_as_role(rls_role)
+async def test_rls_portfolio_holdings_isolated(finagent_app_role: str) -> None:
+    conn = await _connect_as_role(finagent_app_role)
     try:
         await _set_manager_id(conn, "2")
         assert await conn.fetchval("SELECT count(*) FROM portfolio_holdings") == 1
@@ -83,8 +83,8 @@ async def test_rls_portfolio_holdings_isolated(rls_role: str) -> None:
         await conn.close()
 
 
-async def test_rls_recommendations_isolated(rls_role: str) -> None:
-    conn = await _connect_as_role(rls_role)
+async def test_rls_recommendations_isolated(finagent_app_role: str) -> None:
+    conn = await _connect_as_role(finagent_app_role)
     try:
         await _set_manager_id(conn, "2")
         assert await conn.fetchval("SELECT count(*) FROM recommendations") == 1
@@ -94,8 +94,8 @@ async def test_rls_recommendations_isolated(rls_role: str) -> None:
         await conn.close()
 
 
-async def test_rls_recommendations_insert_cross_tenant_rejected(rls_role: str) -> None:
-    conn = await _connect_as_role(rls_role)
+async def test_rls_recommendations_insert_cross_tenant_rejected(finagent_app_role: str) -> None:
+    conn = await _connect_as_role(finagent_app_role)
     try:
         await _set_manager_id(conn, "2")
         with pytest.raises(asyncpg.exceptions.InsufficientPrivilegeError):
