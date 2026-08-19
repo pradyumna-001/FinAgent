@@ -171,7 +171,7 @@ uv run pytest -v
 
 **Phase 2 Remaining**: Celery Beat, atomic writes, SSE, pipeline tests
 
-**Phase 3+**: MAGMA memory, observability, AWS deploy, BTG onboarding, frontend
+**Phase 3+**: MAGMA memory, observability, AWS deploy, manager onboarding, frontend
 
 See [`docs/issues.md`](docs/issues.md) for full 30-issue, 8-week plan.
 

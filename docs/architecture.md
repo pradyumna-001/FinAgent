@@ -4,8 +4,8 @@
 
 FinAgent is a multi-agent AI financial analyst that generates daily morning notes and buy/sell/neutral recommendations for Brazilian equities (B3). It runs automatically every day at 6:00 AM BRT via Celery Beat, processing all active managers and their portfolio companies.
 
-**Target Users**: 3 early-adopter asset managers at BTG Pactual  
-**Pricing**: R$500/month per manager (MVP), R$1,200/month (mature)
+**Target Users**: Asset management professionals  
+**Pricing**: To be determined (personal project, not yet commercialized)
 
 ---
 
@@ -503,7 +503,7 @@ finAgent/
 - #25 Evals dataset + runner
 - #26 Invariant tests blocking merge
 - #27 AWS RDS + ElastiCache + ECS deploy
-- #28 BTG onboarding (3 managers)
+- #28 Manager onboarding (3 managers)
 - #29 Production smoke tests
 
 ### Phase 5 (Week 8) — Frontend + Benchmark
