@@ -13,7 +13,7 @@ from alembic import context
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-db_url = os.environ["DATABASE_URL"]
+db_url = os.environ["MIGRATION_DATABASE_URL"]
 config.set_main_option("sqlalchemy.url", db_url)
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -44,7 +44,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = os.environ["DATABASE_URL"]
+    url = os.environ["MIGRATION_DATABASE_URL"]
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -84,7 +84,11 @@ async def run_async_migrations() -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
 
-    asyncio.run(run_async_migrations())
+    try:
+        loop_factory = asyncio.SelectorEventLoop
+    except AttributeError:
+        loop_factory = None
+    asyncio.run(run_async_migrations(), loop_factory=loop_factory)
 
 
 if context.is_offline_mode():
