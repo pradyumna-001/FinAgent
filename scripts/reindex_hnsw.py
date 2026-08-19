@@ -174,10 +174,6 @@ async def reindex_index(
     
     try:
         async with pool.acquire() as conn:
-            # Get row count before
-            stats_before = await get_index_stats(pool, index_name)
-            rows_before = stats_before["approx_rows"] if stats_before else 0
-            
             # Run REINDEX CONCURRENTLY
             await conn.execute(f"REINDEX INDEX CONCURRENTLY {index_name}")
             
