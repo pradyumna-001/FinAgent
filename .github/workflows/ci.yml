@@ -79,7 +79,7 @@ jobs:
       - name: Run migrations
         run: |
           export MIGRATION_DATABASE_URL=postgresql+psycopg://finagent:finagent_secure_pass@localhost:5432/finagent
-          uv run alembic upgrade head
+          uv run alembic upgrade heads
 
       - name: Run integration tests
         run: uv run pytest tests/integration/ -v
