@@ -20,12 +20,12 @@ Entregável: repositório público no GitHub com estrutura e documentação inic
 ☑  Criar docker-compose.yml
 ☑  Serviço PostgreSQL 16 com health check
 ☑  Serviço Redis com AOF habilitado (appendonly yes) e health check
-☐  Serviço Celery worker
-☐  Serviço Celery Beat
+☑  Serviço Celery worker
+☑  Serviço Celery Beat
 ☑  Criar script init.sql que ativa extensões: CREATE EXTENSION vector; CREATE EXTENSION age;
-☐  Criar Dockerfile da aplicação FastAPI
-☐  Testar: docker-compose up → todos os serviços healthy
-☐  Testar: verificar que extensões estão ativas no PostgreSQL
+☑  Criar Dockerfile da aplicação FastAPI
+☑  Testar: docker-compose up → todos os serviços healthy
+☑  Testar: verificar que extensões estão ativas no PostgreSQL
 → SELECT * FROM pg_extension WHERE extname IN ('vector', 'age');
 Entregável: docker-compose up sobe tudo sem erro. Todos os serviços healthy.
 

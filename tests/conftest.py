@@ -18,6 +18,16 @@ os.environ.setdefault(
     "MIGRATION_DATABASE_URL",
     "postgresql://placeholder@localhost:5432/placeholder",
 )
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("SECRET_KEY", "TEST_SECRET_KEY_REPLACE_IN_PRODUCTION")
+os.environ.setdefault("TAVILY_API_KEY", "tvly-TEST_KEY_REPLACE_IN_PRODUCTION")
+os.environ.setdefault("NVIDIA_API_KEY", "nvapi-TEST_KEY_REPLACE_IN_PRODUCTION")
+os.environ.setdefault("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
+os.environ.setdefault("NVIDIA_MODEL", "openai/gpt-oss-20b")
+os.environ.setdefault("NVIDIA_FALLBACK_MODEL", "openai/gpt-oss-20b")
+os.environ.setdefault("NVIDIA_NEMOTRON_MODEL", "nvidia/nemotron-3-ultra")
+os.environ.setdefault("LANGCHAIN_API_KEY", "")
+os.environ.setdefault("LANGCHAIN_TRACING_V2", "false")
 
 
 @pytest.fixture(scope="session")
