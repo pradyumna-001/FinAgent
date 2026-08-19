@@ -34,8 +34,11 @@ def pg_container() -> Generator[PostgresContainer, None, None]:
 @pytest.fixture(scope="session")
 def migrated_db_url(pg_container: PostgresContainer) -> Generator[str, None, None]:
     url = pg_container.get_connection_url(driver="asyncpg")
+    admin_url = pg_container.get_connection_url(driver="psycopg")
     original_db_url = os.environ.get("DATABASE_URL")
+    original_migration_url = os.environ.get("MIGRATION_DATABASE_URL")
     os.environ["DATABASE_URL"] = url
+    os.environ["MIGRATION_DATABASE_URL"] = admin_url
     try:
         subprocess.run(
             ["alembic", "upgrade", "head"],
@@ -48,10 +51,14 @@ def migrated_db_url(pg_container: PostgresContainer) -> Generator[str, None, Non
             os.environ.pop("DATABASE_URL", None)
         else:
             os.environ["DATABASE_URL"] = original_db_url
+        if original_migration_url is None:
+            os.environ.pop("MIGRATION_DATABASE_URL", None)
+        else:
+            os.environ["MIGRATION_DATABASE_URL"] = original_migration_url
 
 
-@pytest.fixture
-def rls_role(migrated_db_url: str) -> Generator[str, None, None]:
+@pytest.fixture(scope="session")
+def finagent_app_role(migrated_db_url: str) -> Generator[str, None, None]:
     admin_url = migrated_db_url.replace("postgresql+asyncpg", "postgresql", 1)
 
     async def _admin() -> asyncpg.Connection:
@@ -60,15 +67,11 @@ def rls_role(migrated_db_url: str) -> Generator[str, None, None]:
     async def _setup() -> None:
         conn = await _admin()
         try:
-            try:
-                await conn.execute(
-                    "CREATE ROLE rls_test NOSUPERUSER NOBYPASSRLS "
-                    "LOGIN PASSWORD 'rls_test_pwd'"
-                )
-            except asyncpg.exceptions.DuplicateObjectError:
-                pass
-            await conn.execute("GRANT USAGE ON SCHEMA public TO rls_test")
-            await conn.execute("GRANT SELECT ON morning_notes TO rls_test")
+            # Set password for finagent_app role (migration creates it without password)
+            await conn.execute(
+                "ALTER ROLE finagent_app WITH PASSWORD 'finagent_app_pwd'"
+            )
+            # Insert test data
             await conn.execute(
                 "INSERT INTO managers (id, name, email) VALUES "
                 "(2, 'Alice', 'alice@example.com'), "
@@ -120,27 +123,20 @@ def rls_role(migrated_db_url: str) -> Generator[str, None, None]:
                 "FROM morning_notes WHERE note_text = 'note-b1' "
                 "AND NOT EXISTS (SELECT 1 FROM recommendations r WHERE r.morning_note_id = morning_notes.id)"
             )
-            await conn.execute("GRANT SELECT ON managers TO rls_test")
-            await conn.execute("GRANT SELECT ON companies TO rls_test")
-            await conn.execute("GRANT SELECT ON portfolios TO rls_test")
-            await conn.execute("GRANT SELECT ON portfolio_holdings TO rls_test")
-            await conn.execute("GRANT SELECT ON recommendations TO rls_test")
-            await conn.execute("GRANT INSERT, UPDATE ON recommendations TO rls_test")
-            await conn.execute("GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO rls_test")
         finally:
             await conn.close()
 
     async def _teardown() -> None:
         conn = await _admin()
         try:
-            await conn.execute("DROP OWNED BY rls_test CASCADE")
-            await conn.execute("DROP ROLE IF EXISTS rls_test")
+            await conn.execute("DROP OWNED BY finagent_app CASCADE")
+            await conn.execute("DROP ROLE IF EXISTS finagent_app")
         finally:
             await conn.close()
 
     asyncio.run(_setup())
     try:
-        yield f"postgresql+asyncpg://rls_test:rls_test_pwd@{admin_url.split('@', 1)[1]}"
+        yield f"postgresql+asyncpg://finagent_app:finagent_app_pwd@{admin_url.split('@', 1)[1]}"
     finally:
         asyncio.run(_teardown())
         
