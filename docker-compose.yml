@@ -1,14 +1,15 @@
 services:
-  # 🔵 SERVICE 1: The AI Vector & Relational Storage Engine (PostgreSQL 16 + pgvector)
+  # 🔵 SERVICE 1: The AI Vector & Relational Storage Engine
   postgres_vector:
     image: pgvector/pgvector:pg16
     container_name: finagent_postgres_vector
     environment:
       POSTGRES_USER: finagent
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finagent_secure_pass}
       POSTGRES_DB: finagent
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - vector_data:/var/lib/postgresql/data
       - ./scripts/init_vector.sql:/docker-entrypoint-initdb.d/init.sql
@@ -18,14 +19,15 @@ services:
       timeout: 5s
       retries: 5
 
-  # 🟢 SERVICE 2: The Agent Knowledge Graph Engine (PostgreSQL 18 + Apache AGE)
+  # 🟢 SERVICE 2: The Agent Knowledge Graph Engine (Running natively on Postgres 18)
   postgres_graph:
     image: apache/age:latest
     container_name: finagent_postgres_graph
     environment:
       POSTGRES_USER: finagent
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finagent_secure_pass}
       POSTGRES_DB: finagent_graph
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5433:5432" # Exposed on port 5433 locally to avoid collisions
     volumes:
@@ -37,7 +39,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # 🔴 SERVICE 3: Redis with AOF enabled
   redis:
     image: redis:7.2-alpine
     container_name: finagent_redis
@@ -52,108 +53,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # 🟣 SERVICE 4: FastAPI Application
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: finagent_api
-    environment:
-      DATABASE_URL: postgresql+asyncpg://finagent:${POSTGRES_PASSWORD}@postgres_vector:5432/finagent
-      REDIS_URL: redis://redis:6379/0
-      TAVILY_API_KEY: ${TAVILY_API_KEY}
-      NVIDIA_API_KEY: ${NVIDIA_API_KEY}
-      NVIDIA_BASE_URL: ${NVIDIA_BASE_URL:-https://integrate.api.nvidia.com/v1}
-      NVIDIA_MODEL: ${NVIDIA_MODEL:-openai/gpt-oss-20b}
-      NVIDIA_FALLBACK_MODEL: ${NVIDIA_FALLBACK_MODEL:-openai/gpt-oss-20b}
-      NVIDIA_NEMOTRON_MODEL: ${NVIDIA_NEMOTRON_MODEL:-nvidia/nemotron-3-ultra}
-      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY}
-      LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2:-false}
-      SECRET_KEY: ${SECRET_KEY}
-    ports:
-      - "8000:8000"
-    depends_on:
-      postgres_vector:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-  # 🟡 SERVICE 5: Celery Worker
-  celery_worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: finagent_celery_worker
-    command: ["uv", "run", "celery", "-A", "app.workers.pipeline", "worker", "--loglevel=info", "--concurrency=4"]
-    environment:
-      DATABASE_URL: postgresql+asyncpg://finagent:${POSTGRES_PASSWORD}@postgres_vector:5432/finagent
-      REDIS_URL: redis://redis:6379/0
-      TAVILY_API_KEY: ${TAVILY_API_KEY}
-      NVIDIA_API_KEY: ${NVIDIA_API_KEY}
-      NVIDIA_BASE_URL: ${NVIDIA_BASE_URL:-https://integrate.api.nvidia.com/v1}
-      NVIDIA_MODEL: ${NVIDIA_MODEL:-openai/gpt-oss-20b}
-      NVIDIA_FALLBACK_MODEL: ${NVIDIA_FALLBACK_MODEL:-openai/gpt-oss-20b}
-      NVIDIA_NEMOTRON_MODEL: ${NVIDIA_NEMOTRON_MODEL:-nvidia/nemotron-3-ultra}
-      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY}
-      LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2:-false}
-      SECRET_KEY: ${SECRET_KEY}
-    depends_on:
-      postgres_vector:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-    healthcheck:
-      test: ["CMD-SHELL", "cd /app && .venv/bin/celery -A app.workers.pipeline inspect ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
-
-  # 🟠 SERVICE 6: Celery Beat (Scheduler)
-  celery_beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: finagent_celery_beat
-    command: ["uv", "run", "celery", "-A", "app.workers.pipeline", "beat", "--loglevel=info", "--scheduler=celery.beat.PersistentScheduler"]
-    environment:
-      DATABASE_URL: postgresql+asyncpg://finagent:${POSTGRES_PASSWORD}@postgres_vector:5432/finagent
-      REDIS_URL: redis://redis:6379/0
-      TAVILY_API_KEY: ${TAVILY_API_KEY}
-      NVIDIA_API_KEY: ${NVIDIA_API_KEY}
-      NVIDIA_BASE_URL: ${NVIDIA_BASE_URL:-https://integrate.api.nvidia.com/v1}
-      NVIDIA_MODEL: ${NVIDIA_MODEL:-openai/gpt-oss-20b}
-      NVIDIA_FALLBACK_MODEL: ${NVIDIA_FALLBACK_MODEL:-openai/gpt-oss-20b}
-      NVIDIA_NEMOTRON_MODEL: ${NVIDIA_NEMOTRON_MODEL:-nvidia/nemotron-3-ultra}
-      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY}
-      LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2:-false}
-      SECRET_KEY: ${SECRET_KEY}
-    depends_on:
-      postgres_vector:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - celery_beat_data:/app/celerybeat
-    healthcheck:
-      test: ["CMD", "/app/.venv/bin/celery", "-A", "app.workers.pipeline", "inspect", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
-
 volumes:
   vector_data:
   graph_data:
   redis_data:
-  celery_beat_data:

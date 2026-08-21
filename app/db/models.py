@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import String, DateTime, ForeignKey, Text, CheckConstraint, func, text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
 from pgvector.sqlalchemy import HALFVEC
@@ -16,6 +16,7 @@ class Manager(Base):
     __tablename__ = "managers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    feedbacks: Mapped[list["Feedback"]] = relationship(back_populates="manager")
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -61,6 +62,7 @@ class MorningNote(Base):
     __tablename__ = "morning_notes"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    feedbacks: Mapped[list["Feedback"]] = relationship(back_populates="morning_note")
     portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id"), nullable=False, index=True)
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     note_text: Mapped[str] = mapped_column(Text, nullable=False)
@@ -88,3 +90,27 @@ class Recommendation(Base):
     justification: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class FeedbackAction(str, Enum):
+    BUY = "buy"
+    SELL = "sell"
+    KEEP = "keep"
+
+
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    morning_note: Mapped["MorningNote"] = relationship(back_populates="feedbacks")
+    manager: Mapped["Manager"] = relationship(back_populates="feedbacks")
+    morning_note_id: Mapped[int] = mapped_column(ForeignKey("morning_notes.id"), nullable=False, index=True)
+    manager_id: Mapped[int] = mapped_column(ForeignKey("managers.id"), nullable=False, index=True)
+    action: Mapped[FeedbackAction] = mapped_column(
+        String(16), 
+        CheckConstraint("action IN ('buy', 'sell', 'keep')", name="ck_feedback_action"),
+        nullable=False
+    )
+    justification: Mapped[str] = mapped_column(Text, nullable=False)
+    comment: Mapped[str] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
