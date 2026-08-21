@@ -1,19 +1,7 @@
-from collections.abc import Iterator
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-import app.db.session as db_session
 from app.main import app
-
-
-@pytest.fixture
-def bound_engine(migrated_db_url: str) -> Iterator[None]:
-    engine = create_async_engine(migrated_db_url, echo=False)
-    db_session.engine = engine
-    db_session.SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
-    yield
-    engine.sync_engine.dispose()
 
 
 @pytest.mark.asyncio

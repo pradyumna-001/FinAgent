@@ -1,14 +1,17 @@
 from __future__ import annotations
 import asyncio
-from collections.abc import Generator
 import os
 import subprocess
+from collections.abc import Generator
 from pathlib import Path
+from typing import Iterator
 
 import asyncpg
 import pytest
 from docker.errors import DockerException
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from testcontainers.community.postgres import PostgresContainer
+
 
 os.environ.setdefault(
     "DATABASE_URL",
@@ -29,6 +32,7 @@ os.environ.setdefault("NVIDIA_NEMOTRON_MODEL", "nvidia/nemotron-3-ultra")
 os.environ.setdefault("LANGCHAIN_API_KEY", "")
 os.environ.setdefault("LANGCHAIN_TRACING_V2", "false")
 
+import app.db.session as db_session
 
 @pytest.fixture(scope="session")
 def pg_container() -> Generator[PostgresContainer, None, None]:
@@ -133,6 +137,13 @@ def finagent_app_role(migrated_db_url: str) -> Generator[str, None, None]:
                 "FROM morning_notes WHERE note_text = 'note-b1' "
                 "AND NOT EXISTS (SELECT 1 FROM recommendations r WHERE r.morning_note_id = morning_notes.id)"
             )
+            await conn.execute(
+                "INSERT INTO feedbacks "
+                "(morning_note_id, manager_id, action, justification, comment) "
+                "SELECT id, 2, 'buy', 'Strong fundamentals', 'really cool' "
+                "FROM morning_notes WHERE note_text = 'note-a1' "
+                "AND NOT EXISTS (SELECT 1 FROM feedbacks f WHERE f.morning_note_id = morning_notes.id)"
+            )
         finally:
             await conn.close()
 
@@ -149,4 +160,12 @@ def finagent_app_role(migrated_db_url: str) -> Generator[str, None, None]:
         yield f"postgresql+asyncpg://finagent_app:finagent_app_pwd@{admin_url.split('@', 1)[1]}"
     finally:
         asyncio.run(_teardown())
-        
+
+
+@pytest.fixture
+def bound_engine(migrated_db_url: str) -> Iterator[None]:
+    engine = create_async_engine(migrated_db_url, echo=False)
+    db_session.engine = engine
+    db_session.SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+    yield
+    engine.sync_engine.dispose()
