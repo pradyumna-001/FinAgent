@@ -7,7 +7,7 @@ from app.db.models import FeedbackAction
 
 class FeedbackCreate(BaseModel):
     action: FeedbackAction
-    justification: str
+    justification: str = Field(..., min_length=10)
     comment: str | None = Field(default=None)
 
 

@@ -36,7 +36,7 @@ async def test_create_feedback_missing_header_returns_400() -> None:
             "/morning-notes/1/feedback",
             json={
                 "action": "buy",
-                "justification": "test"
+                "justification": "Strong fundamentals"
             }
         )
     assert resp.status_code == 400
@@ -145,6 +145,26 @@ async def test_create_feedback_invalid_action_returns_422(bound_engine: None, fi
 
         assert resp.status_code == 422
         assert resp.json()["detail"][0]["msg"] == "Input should be 'buy', 'sell' or 'keep'"
+
+
+@pytest.mark.asyncio
+async def test_create_feedback_short_justification_422(bound_engine: None, finagent_app_role: None) -> None:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/morning-notes", headers={"manager-id": "2"})
+        notes = resp.json()
+        note_id = notes[0]["id"]
+
+        resp = await client.post(
+            f"/morning-notes/{note_id}/feedback",
+            headers={"manager-id": "2"},
+            json={
+                "action": "buy",
+                "justification": "short",
+            }
+        )
+
+        assert resp.status_code == 422
 
 
 @pytest.mark.asyncio
