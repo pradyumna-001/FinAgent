@@ -7,6 +7,7 @@ from app.services.pipeline import run_pipeline_stub
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
+
 @router.post("/trigger", status_code=status.HTTP_202_ACCEPTED)
 async def trigger_pipeline(
     payload: TriggerRequest,

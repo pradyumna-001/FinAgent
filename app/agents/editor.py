@@ -24,6 +24,15 @@ async def editor_agent_node(state: AgentState) -> dict:
         }
     )
 
+    await state["sse_service"].emit_event(
+        state["pipeline_run_id"],
+        {
+            "event_type": "agent_started",
+            "agent_name": "editor",
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+    )
+
     new_flags = []
 
     raw_flags = state.get("flags", [])
@@ -66,6 +75,25 @@ async def editor_agent_node(state: AgentState) -> dict:
                 message="Summarization failed"
             )
         )
+        confidence = state["confidence_scores"].get("editor", 1.0)
+        await state["sse_service"].emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "agent_completed",
+                "agent_name": "editor",
+                "confidence_score": confidence,
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
+        await state["sse_service"].emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "pipeline_failed",
+                "flags": [f.to_dict() for f in new_flags],
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
+        state["sse_service"].cleanup(state["pipeline_run_id"])
         return {
             "morning_note": None,
             "recommendation": None,
@@ -84,6 +112,25 @@ async def editor_agent_node(state: AgentState) -> dict:
                 message="Failed to parse EditorAgent JSON response"
             )
         )
+        confidence = state["confidence_scores"].get("editor", 1.0)
+        await state["sse_service"].emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "agent_completed",
+                "agent_name": "editor",
+                "confidence_score": confidence,
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
+        await state["sse_service"].emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "pipeline_failed",
+                "flags": [f.to_dict() for f in new_flags],
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
+        state["sse_service"].cleanup(state["pipeline_run_id"])
         return {
             "morning_note": None,
             "recommendation": None,
@@ -119,6 +166,25 @@ async def editor_agent_node(state: AgentState) -> dict:
                     message="Failed to parse EditorAgent JSON response"
                 )
             )
+            confidence = state["confidence_scores"].get("editor", 1.0)
+            await state["sse_service"].emit_event(
+                state["pipeline_run_id"],
+                {
+                    "event_type": "agent_completed",
+                    "agent_name": "editor",
+                    "confidence_score": confidence,
+                    "timestamp": datetime.now(UTC).isoformat()
+                }
+            )
+            await state["sse_service"].emit_event(
+                state["pipeline_run_id"],
+                {
+                    "event_type": "pipeline_failed",
+                    "flags": [f.to_dict() for f in new_flags],
+                    "timestamp": datetime.now(UTC).isoformat()
+                }
+            )
+            state["sse_service"].cleanup(state["pipeline_run_id"])
             return {
                 "morning_note": None,
                 "recommendation": None,
@@ -134,6 +200,25 @@ async def editor_agent_node(state: AgentState) -> dict:
                 message="Missing keys"
             )
         )
+        confidence = state["confidence_scores"].get("editor", 1.0)
+        await state["sse_service"].emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "agent_completed",
+                "agent_name": "editor",
+                "confidence_score": confidence,
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
+        await state["sse_service"].emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "pipeline_failed",
+                "flags": [f.to_dict() for f in new_flags],
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
+        state["sse_service"].cleanup(state["pipeline_run_id"])
         return {
             "morning_note": None,
             "recommendation": None,
@@ -147,6 +232,25 @@ async def editor_agent_node(state: AgentState) -> dict:
     if warnings:
         morning_note = "\n\n".join(warnings) + "\n\n" + morning_note
 
+    confidence = state["confidence_scores"].get("editor", 1.0)
+    await state["sse_service"].emit_event(
+        state["pipeline_run_id"],
+        {
+            "event_type": "agent_completed",
+            "agent_name": "editor",
+            "confidence_score": confidence,
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+    )
+    await state["sse_service"].emit_event(
+        state["pipeline_run_id"],
+        {
+            "event_type": "note_ready",
+            "morning_note_id": state["morning_note_id"],
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+    )
+    state["sse_service"].cleanup(state["pipeline_run_id"])
     return {
         "morning_note": morning_note,
         "recommendation": parsed["recommendation"],
