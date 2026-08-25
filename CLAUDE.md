@@ -130,13 +130,21 @@ uv run python scripts/run_pipeline.py
 
 # HNSW reindex (dry run)
 uv run python scripts/reindex_hnsw.py --dry-run
+
+# Celery worker
+export DATABASE_URL="postgresql+asyncpg://finagent:finagent_secure_pass@localhost:5432/finagent"
+export REDIS_URL="redis://localhost:6379/0"
+uv run celery -A app.workers.pipeline worker --loglevel=info --concurrency=4
+
+# Celery beat
+uv run celery -A app.workers.pipeline beat --loglevel=info --scheduler=celery.beat.PersistentScheduler
 ```
 
 ## Current Branch State
 
-- **Main**: Latest merged (PR #88 — CI integration coverage)
-- **Active**: `feature/issue-05d-ci-integration-coverage` (merged, can be deleted)
-- **Next**: Issue #04a (FastAPI lifespan + /health) or #19 (Celery Beat)
+- **Main**: Latest merged (PR #92 — Docker Compose + Celery)
+- **Active**: None (all Semana 1 branches merged)
+- **Next**: Issue #06 (Semana 1 review) → then #07 (Typed AgentState)
 
 ## Open Follow-ups (from journals)
 
@@ -148,6 +156,8 @@ uv run python scripts/reindex_hnsw.py --dry-run
 6. GET /morning-notes/{id} detail endpoint (for frontend)
 7. Feedback endpoint + model
 8. MAGMA implementation (#16-18)
+9. Celery Beat schedule persistence via volume mount (configured in #02)
+10. No default secrets in docker-compose (enforced in #02)
 
 ## Agent Contract (All 5 Agents)
 

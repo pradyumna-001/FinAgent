@@ -161,12 +161,12 @@ GitHub: issue #44
 Entregável dos quatro juntos: CI verde em todo push; três unit tests passando; DataFlag tipado pronto para #07 consumir.
 
 #06 Revisão da Semana 1  ·  Sexta  ·  review
-☐  Clonar o repositório numa pasta nova e seguir o DEPLOYMENT.md do zero
-☐  docker-compose up funciona sem configuração manual extra
-☐  pytest passa sem configuração manual
-☐  RLS funciona: query sem gestor_id é rejeitada
-☐  Atualizar CLAUDE.md com decisões que mudaram
-☐  Atualizar progress tracker no CLAUDE.md — marcar Semana 1 como concluída
+☑  Clonar o repositório numa pasta nova e seguir o DEPLOYMENT.md do zero
+☑  docker-compose up funciona sem configuração manual extra
+☑  pytest passa sem configuração manual
+☑  RLS funciona: query sem gestor_id é rejeitada
+☑  Atualizar CLAUDE.md com decisões que mudaram
+☑  Atualizar progress tracker no CLAUDE.md — marcar Semana 1 como concluída
 Entregável: qualquer pessoa consegue rodar o projeto do zero seguindo o DEPLOYMENT.md.
 
 
