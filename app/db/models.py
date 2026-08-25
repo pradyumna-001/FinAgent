@@ -17,6 +17,7 @@ class Manager(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     feedbacks: Mapped[list["Feedback"]] = relationship(back_populates="manager")
+    morning_notes: Mapped[list["MorningNote"]] = relationship(back_populates="manager")
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -26,6 +27,7 @@ class Company(Base):
     __tablename__ = "companies"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    morning_notes: Mapped[list["MorningNote"]] = relationship(back_populates="company")
     ticker: Mapped[str] = mapped_column(String(12), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     sector: Mapped[str | None] = mapped_column(String(120))
@@ -63,6 +65,9 @@ class MorningNote(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     feedbacks: Mapped[list["Feedback"]] = relationship(back_populates="morning_note")
+    recommendation: Mapped["Recommendation"] = relationship(back_populates="morning_note", uselist=False)
+    manager: Mapped["Manager"] = relationship(back_populates="morning_notes")
+    company: Mapped["Company"] = relationship(back_populates="morning_notes")
     portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id"), nullable=False, index=True)
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     note_text: Mapped[str] = mapped_column(Text, nullable=False)
@@ -85,6 +90,7 @@ class Recommendation(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     morning_note_id: Mapped[int] = mapped_column(ForeignKey("morning_notes.id"), nullable=False, index=True)
+    morning_note: Mapped["MorningNote"] = relationship(back_populates="recommendation")
     action: Mapped[str] = mapped_column(String(16), nullable=False)
     confidence: Mapped[float] = mapped_column(nullable=False)
     justification: Mapped[str] = mapped_column(Text, nullable=False)
