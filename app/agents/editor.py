@@ -6,6 +6,7 @@ import logging
 from app.graph.state import AgentState
 from app.prompts.editor import EDITOR_PROMPTS
 from app.services.llm import summarize_nemotron
+from app.services.sse import sse_service
 from app.utils.editor_confidence import apply_confidence_penalties
 from app.utils.flags import DataFlag, Severity
 
@@ -24,7 +25,7 @@ async def editor_agent_node(state: AgentState) -> dict:
         }
     )
 
-    await state["sse_service"].emit_event(
+    await sse_service.emit_event(
         state["pipeline_run_id"],
         {
             "event_type": "agent_started",
@@ -76,7 +77,7 @@ async def editor_agent_node(state: AgentState) -> dict:
             )
         )
         confidence = state["confidence_scores"].get("editor", 1.0)
-        await state["sse_service"].emit_event(
+        await sse_service.emit_event(
             state["pipeline_run_id"],
             {
                 "event_type": "agent_completed",
@@ -85,7 +86,7 @@ async def editor_agent_node(state: AgentState) -> dict:
                 "timestamp": datetime.now(UTC).isoformat()
             }
         )
-        await state["sse_service"].emit_event(
+        await sse_service.emit_event(
             state["pipeline_run_id"],
             {
                 "event_type": "pipeline_failed",
@@ -93,7 +94,7 @@ async def editor_agent_node(state: AgentState) -> dict:
                 "timestamp": datetime.now(UTC).isoformat()
             }
         )
-        state["sse_service"].cleanup(state["pipeline_run_id"])
+        sse_service.cleanup(state["pipeline_run_id"])
         return {
             "morning_note": None,
             "recommendation": None,
@@ -113,7 +114,7 @@ async def editor_agent_node(state: AgentState) -> dict:
             )
         )
         confidence = state["confidence_scores"].get("editor", 1.0)
-        await state["sse_service"].emit_event(
+        await sse_service.emit_event(
             state["pipeline_run_id"],
             {
                 "event_type": "agent_completed",
@@ -122,7 +123,7 @@ async def editor_agent_node(state: AgentState) -> dict:
                 "timestamp": datetime.now(UTC).isoformat()
             }
         )
-        await state["sse_service"].emit_event(
+        await sse_service.emit_event(
             state["pipeline_run_id"],
             {
                 "event_type": "pipeline_failed",
@@ -130,7 +131,7 @@ async def editor_agent_node(state: AgentState) -> dict:
                 "timestamp": datetime.now(UTC).isoformat()
             }
         )
-        state["sse_service"].cleanup(state["pipeline_run_id"])
+        sse_service.cleanup(state["pipeline_run_id"])
         return {
             "morning_note": None,
             "recommendation": None,
@@ -167,7 +168,7 @@ async def editor_agent_node(state: AgentState) -> dict:
                 )
             )
             confidence = state["confidence_scores"].get("editor", 1.0)
-            await state["sse_service"].emit_event(
+            await sse_service.emit_event(
                 state["pipeline_run_id"],
                 {
                     "event_type": "agent_completed",
@@ -176,7 +177,7 @@ async def editor_agent_node(state: AgentState) -> dict:
                     "timestamp": datetime.now(UTC).isoformat()
                 }
             )
-            await state["sse_service"].emit_event(
+            await sse_service.emit_event(
                 state["pipeline_run_id"],
                 {
                     "event_type": "pipeline_failed",
@@ -184,7 +185,7 @@ async def editor_agent_node(state: AgentState) -> dict:
                     "timestamp": datetime.now(UTC).isoformat()
                 }
             )
-            state["sse_service"].cleanup(state["pipeline_run_id"])
+            sse_service.cleanup(state["pipeline_run_id"])
             return {
                 "morning_note": None,
                 "recommendation": None,
@@ -201,7 +202,7 @@ async def editor_agent_node(state: AgentState) -> dict:
             )
         )
         confidence = state["confidence_scores"].get("editor", 1.0)
-        await state["sse_service"].emit_event(
+        await sse_service.emit_event(
             state["pipeline_run_id"],
             {
                 "event_type": "agent_completed",
@@ -210,7 +211,7 @@ async def editor_agent_node(state: AgentState) -> dict:
                 "timestamp": datetime.now(UTC).isoformat()
             }
         )
-        await state["sse_service"].emit_event(
+        await sse_service.emit_event(
             state["pipeline_run_id"],
             {
                 "event_type": "pipeline_failed",
@@ -218,7 +219,7 @@ async def editor_agent_node(state: AgentState) -> dict:
                 "timestamp": datetime.now(UTC).isoformat()
             }
         )
-        state["sse_service"].cleanup(state["pipeline_run_id"])
+        sse_service.cleanup(state["pipeline_run_id"])
         return {
             "morning_note": None,
             "recommendation": None,
@@ -233,7 +234,7 @@ async def editor_agent_node(state: AgentState) -> dict:
         morning_note = "\n\n".join(warnings) + "\n\n" + morning_note
 
     confidence = state["confidence_scores"].get("editor", 1.0)
-    await state["sse_service"].emit_event(
+    await sse_service.emit_event(
         state["pipeline_run_id"],
         {
             "event_type": "agent_completed",
@@ -242,7 +243,7 @@ async def editor_agent_node(state: AgentState) -> dict:
             "timestamp": datetime.now(UTC).isoformat()
         }
     )
-    await state["sse_service"].emit_event(
+    await sse_service.emit_event(
         state["pipeline_run_id"],
         {
             "event_type": "note_ready",
@@ -250,7 +251,7 @@ async def editor_agent_node(state: AgentState) -> dict:
             "timestamp": datetime.now(UTC).isoformat()
         }
     )
-    state["sse_service"].cleanup(state["pipeline_run_id"])
+    sse_service.cleanup(state["pipeline_run_id"])
     return {
         "morning_note": morning_note,
         "recommendation": parsed["recommendation"],

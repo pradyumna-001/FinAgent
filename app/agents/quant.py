@@ -3,6 +3,7 @@ import logging
 
 from app.graph.state import AgentState, QuantOutput
 from app.services.yfinance import YfinanceService, YfinanceError
+from app.services.sse import sse_service
 from app.utils.flags import DataFlag, Severity
 
 
@@ -23,7 +24,7 @@ async def quant_agent_node(state: AgentState) -> dict:
         },
     )
 
-    await state["sse_service"].emit_event(
+    await sse_service.emit_event(
         state["pipeline_run_id"],
         {
             "event_type": "agent_started",
@@ -45,7 +46,7 @@ async def quant_agent_node(state: AgentState) -> dict:
             )
         )
         confidence = state["confidence_scores"].get("quant", 1.0)
-        await state["sse_service"].emit_event(
+        await sse_service.emit_event(
             state["pipeline_run_id"],
             {
                 "event_type": "agent_completed",
@@ -64,7 +65,7 @@ async def quant_agent_node(state: AgentState) -> dict:
     if result.error:
         new_flags.append(result.error)
         confidence = state["confidence_scores"].get("quant", 1.0)
-        await state["sse_service"].emit_event(
+        await sse_service.emit_event(
             state["pipeline_run_id"],
             {
                 "event_type": "agent_completed",
@@ -92,7 +93,7 @@ async def quant_agent_node(state: AgentState) -> dict:
     }
 
     confidence = state["confidence_scores"].get("quant", 1.0)
-    await state["sse_service"].emit_event(
+    await sse_service.emit_event(
         state["pipeline_run_id"],
         {
             "event_type": "agent_completed",

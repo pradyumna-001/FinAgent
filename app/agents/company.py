@@ -7,6 +7,7 @@ from app.graph.state import AgentState, CompanyEvent
 from app.prompts.company import COMPANY_PROMPTS
 from app.services.llm import summarize
 from app.services.tavily import TavilyService, TavilyConfigError
+from app.services.sse import sse_service
 from app.utils.flags import DataFlag, Severity
 
 
@@ -27,7 +28,7 @@ async def company_agent_node(state: AgentState) -> dict:
         }
     )
 
-    await state["sse_service"].emit_event(
+    await sse_service.emit_event(
         state["pipeline_run_id"],
         {
             "event_type": "agent_started",
@@ -49,7 +50,7 @@ async def company_agent_node(state: AgentState) -> dict:
             )
         )
         confidence = state["confidence_scores"].get("company", 1.0)
-        await state["sse_service"].emit_event(
+        await sse_service.emit_event(
             state["pipeline_run_id"],
             {
                 "event_type": "agent_completed",
@@ -77,7 +78,7 @@ async def company_agent_node(state: AgentState) -> dict:
     if result.error:
         new_flags.append(result.error)
         confidence = state["confidence_scores"].get("company", 1.0)
-        await state["sse_service"].emit_event(
+        await sse_service.emit_event(
             state["pipeline_run_id"],
             {
                 "event_type": "agent_completed",
@@ -122,7 +123,7 @@ async def company_agent_node(state: AgentState) -> dict:
         )
 
     confidence = state["confidence_scores"].get("company", 1.0)
-    await state["sse_service"].emit_event(
+    await sse_service.emit_event(
         state["pipeline_run_id"],
         {
             "event_type": "agent_completed",
