@@ -1,6 +1,6 @@
 from datetime import datetime
 from operator import add
-from typing import TypedDict, Literal, Annotated, Any
+from typing import TypedDict, Literal, Annotated
 
 from app.utils.flags import DataFlag, Severity
 
@@ -61,7 +61,6 @@ class AgentState(TypedDict):
     confidence_scores: dict[str, float]
     data_freshness: Annotated[dict[str, datetime], merge_dicts]
     flags: Annotated[list[DataFlag], add]
-    sse_service: Any
 
 
 def create_initial_state(
@@ -69,8 +68,7 @@ def create_initial_state(
         manager_id: int,
         company_ticker: str,
         pipeline_run_id: str,
-        morning_note_id: str,
-        sse_service: Any
+        morning_note_id: str
 ) -> AgentState:
     return {
         "manager_id": manager_id,
@@ -85,8 +83,7 @@ def create_initial_state(
         "recommendation": None,
         "confidence_scores": {},
         "data_freshness": {},
-        "flags": [],
-        "sse_service": sse_service
+        "flags": []
     }
 
 
