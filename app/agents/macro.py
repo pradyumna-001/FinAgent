@@ -7,6 +7,7 @@ from app.graph.state import AgentState, MacroOutput
 from app.prompts.macro import MACRO_PROMPTS
 from app.services.llm import summarize
 from app.services.tavily import TavilyService, TavilyConfigError
+from app.services.sse import sse_service
 from app.utils.flags import DataFlag, Severity
 
 
@@ -27,7 +28,7 @@ async def macro_agent_node(state: AgentState) -> dict:
         }
     )
 
-    await state["sse_service"].emit_event(
+    await sse_service.emit_event(
         state["pipeline_run_id"],
         {
             "event_type": "agent_started",
@@ -49,7 +50,7 @@ async def macro_agent_node(state: AgentState) -> dict:
             )
         )
         confidence = state["confidence_scores"].get("macro", 1.0)
-        await state["sse_service"].emit_event(
+        await sse_service.emit_event(
             state["pipeline_run_id"],
             {
                 "event_type": "agent_completed",
@@ -76,7 +77,7 @@ async def macro_agent_node(state: AgentState) -> dict:
     )
     if result.error:
         confidence = state["confidence_scores"].get("macro", 1.0)
-        await state["sse_service"].emit_event(
+        await sse_service.emit_event(
             state["pipeline_run_id"],
             {
                 "event_type": "agent_completed",
@@ -93,7 +94,7 @@ async def macro_agent_node(state: AgentState) -> dict:
         }
 
     confidence = state["confidence_scores"].get("macro", 1.0)
-    await state["sse_service"].emit_event(
+    await sse_service.emit_event(
         state["pipeline_run_id"],
         {
             "event_type": "agent_completed",

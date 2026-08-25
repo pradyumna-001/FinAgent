@@ -5,6 +5,7 @@ from app.prompts.risk import RISK_PROMPTS
 from app.services.llm import summarize
 from app.graph.state import AgentState
 from app.utils.risk_parse import parse_risk_json
+from app.services.sse import sse_service
 from app.utils.flags import DataFlag, Severity
 
 
@@ -24,7 +25,7 @@ async def risk_agent_node(state: AgentState) -> dict:
         }
     )
 
-    await state["sse_service"].emit_event(
+    await sse_service.emit_event(
         state["pipeline_run_id"],
         {
             "event_type": "agent_started",
@@ -57,7 +58,7 @@ async def risk_agent_node(state: AgentState) -> dict:
         )
 
     confidence = state["confidence_scores"].get("risk", 1.0)
-    await state["sse_service"].emit_event(
+    await sse_service.emit_event(
         state["pipeline_run_id"],
         {
             "event_type": "agent_completed",
