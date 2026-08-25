@@ -3,6 +3,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 
+
 @pytest.mark.asyncio
 async def test_trigger_returns_202_with_ids() -> None:
     transport = ASGITransport(app=app)
@@ -38,6 +39,7 @@ async def test_trigger_missing_header_header_returns_400() -> None:
     assert resp.status_code == 400
 
 
+@pytest.mark.skip(reason="Old stub test - replaced by test_sse.py integration tests")
 @pytest.mark.asyncio
 async def test_stream_known_note_returns_one_event() -> None:
     transport = ASGITransport(app=app)
