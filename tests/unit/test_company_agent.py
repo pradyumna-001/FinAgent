@@ -15,7 +15,7 @@ def make_state():
         manager_id=1,
         company_ticker="PETR4",
         pipeline_run_id="run",
-        morning_note_id="note",
+        morning_note_id="note"
     )
 
 
