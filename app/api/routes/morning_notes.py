@@ -13,6 +13,7 @@ from app.db.session import get_session
 from app.db.models import MorningNote
 from app.api.errors import MorningNoteNotFound
 from app.services.pipeline import _PIPELINE_REGISTRY
+from app.services.sse import sse_service
 
 
 router = APIRouter(prefix="/morning-notes", tags=["morning-notes"])
@@ -47,12 +48,18 @@ async def stream_morning_note(note_id: str):
         raise MorningNoteNotFound(note_id)
 
     async def event_stream():
-        payload = json.dumps(
-            {"morning_note_id": note_id, "pipeline_run_id": run_id}
-        )
-        yield f"data: {payload}\n\n"
+        async for event in sse_service.subscribe(run_id):
+            yield f"data: {json.dumps(event)}\n\n"
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_stream(), 
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 
 @router.get("/{note_id}")

@@ -23,6 +23,15 @@ async def quant_agent_node(state: AgentState) -> dict:
         },
     )
 
+    await state["sse_service"].emit_event(
+        state["pipeline_run_id"],
+        {
+            "event_type": "agent_started",
+            "agent_name": "quant",
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+    )
+
     new_flags = []
 
     try:
@@ -35,6 +44,16 @@ async def quant_agent_node(state: AgentState) -> dict:
                 message=str(exc)
             )
         )
+        confidence = state["confidence_scores"].get("quant", 1.0)
+        await state["sse_service"].emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "agent_completed",
+                "agent_name": "quant",
+                "confidence_score": confidence,
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
         return {
             "quant_metrics": None,
             "data_freshness": {"quant": datetime.now(UTC)},
@@ -44,6 +63,16 @@ async def quant_agent_node(state: AgentState) -> dict:
     result = await yfinance_service.search()
     if result.error:
         new_flags.append(result.error)
+        confidence = state["confidence_scores"].get("quant", 1.0)
+        await state["sse_service"].emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "agent_completed",
+                "agent_name": "quant",
+                "confidence_score": confidence,
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
         return {
             "quant_metrics": None,
             "data_freshness": {"quant": datetime.now(UTC)},
@@ -62,6 +91,16 @@ async def quant_agent_node(state: AgentState) -> dict:
         "market_time": result.metrics.market_time,
     }
 
+    confidence = state["confidence_scores"].get("quant", 1.0)
+    await state["sse_service"].emit_event(
+        state["pipeline_run_id"],
+        {
+            "event_type": "agent_completed",
+            "agent_name": "quant",
+            "confidence_score": confidence,
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+    )
     return {
         "quant_metrics": quant_metrics,
         "data_freshness": {

@@ -24,6 +24,15 @@ async def risk_agent_node(state: AgentState) -> dict:
         }
     )
 
+    await state["sse_service"].emit_event(
+        state["pipeline_run_id"],
+        {
+            "event_type": "agent_started",
+            "agent_name": "risk",
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+    )
+
     user_prompt = RISK_PROMPTS.build_user_prompt(
         macro_context=state.get("macro_context"),
         company_events=state.get("company_events", []),
@@ -46,6 +55,17 @@ async def risk_agent_node(state: AgentState) -> dict:
                 message=f"{dropped} risk flag(s) dropped during parsing",
             )
         )
+
+    confidence = state["confidence_scores"].get("risk", 1.0)
+    await state["sse_service"].emit_event(
+        state["pipeline_run_id"],
+        {
+            "event_type": "agent_completed",
+            "agent_name": "risk",
+            "confidence_score": confidence,
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+    )
     return {
         "risk_flags": flags,
         "data_freshness": {"risk": datetime.now(UTC)},

@@ -27,6 +27,15 @@ async def company_agent_node(state: AgentState) -> dict:
         }
     )
 
+    await state["sse_service"].emit_event(
+        state["pipeline_run_id"],
+        {
+            "event_type": "agent_started",
+            "agent_name": "company",
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+    )
+
     new_flags = []
 
     try:
@@ -38,6 +47,16 @@ async def company_agent_node(state: AgentState) -> dict:
                 severity=Severity.FATAL,
                 message=str(exc)
             )
+        )
+        confidence = state["confidence_scores"].get("company", 1.0)
+        await state["sse_service"].emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "agent_completed",
+                "agent_name": "company",
+                "confidence_score": confidence,
+                "timestamp": datetime.now(UTC).isoformat()
+            }
         )
         return {
             "company_events": [],
@@ -57,6 +76,16 @@ async def company_agent_node(state: AgentState) -> dict:
     )
     if result.error:
         new_flags.append(result.error)
+        confidence = state["confidence_scores"].get("company", 1.0)
+        await state["sse_service"].emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "agent_completed",
+                "agent_name": "company",
+                "confidence_score": confidence,
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
         return {
             "company_events": [],
             "data_freshness": {"company": datetime.now(UTC)},
@@ -92,6 +121,16 @@ async def company_agent_node(state: AgentState) -> dict:
             )
         )
 
+    confidence = state["confidence_scores"].get("company", 1.0)
+    await state["sse_service"].emit_event(
+        state["pipeline_run_id"],
+        {
+            "event_type": "agent_completed",
+            "agent_name": "company",
+            "confidence_score": confidence,
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+    )
     return {
         "company_events": company_events,
         "data_freshness": {"company": datetime.now(UTC)},

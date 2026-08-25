@@ -27,6 +27,15 @@ async def macro_agent_node(state: AgentState) -> dict:
         }
     )
 
+    await state["sse_service"].emit_event(
+        state["pipeline_run_id"],
+        {
+            "event_type": "agent_started",
+            "agent_name": "macro",
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+    )
+
     new_flags = []
 
     try:
@@ -38,6 +47,16 @@ async def macro_agent_node(state: AgentState) -> dict:
                 severity=Severity.FATAL,
                 message=str(exc)
             )
+        )
+        confidence = state["confidence_scores"].get("macro", 1.0)
+        await state["sse_service"].emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "agent_completed",
+                "agent_name": "macro",
+                "confidence_score": confidence,
+                "timestamp": datetime.now(UTC).isoformat()
+            }
         )
         return {
             "macro_context": None,
@@ -56,6 +75,16 @@ async def macro_agent_node(state: AgentState) -> dict:
         max_results=10
     )
     if result.error:
+        confidence = state["confidence_scores"].get("macro", 1.0)
+        await state["sse_service"].emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "agent_completed",
+                "agent_name": "macro",
+                "confidence_score": confidence,
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
         new_flags.append(result.error)
         return {
             "macro_context": None,
@@ -63,6 +92,16 @@ async def macro_agent_node(state: AgentState) -> dict:
             "flags": new_flags
         }
 
+    confidence = state["confidence_scores"].get("macro", 1.0)
+    await state["sse_service"].emit_event(
+        state["pipeline_run_id"],
+        {
+            "event_type": "agent_completed",
+            "agent_name": "macro",
+            "confidence_score": confidence,
+            "timestamp": datetime.now(UTC).isoformat()
+        }
+    )
     macro_output: MacroOutput | None = None
     if result.articles:
         top = result.articles[0]
@@ -89,6 +128,7 @@ async def macro_agent_node(state: AgentState) -> dict:
             sources=[top.url] if top.url else [],
             fetched_at=datetime.now(UTC).isoformat()
         )
+
 
     return {
         "macro_context": macro_output,
