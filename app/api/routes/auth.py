@@ -52,3 +52,4 @@ async def me(current_manager: Annotated[Manager, Depends(get_current_manager)]) 
         "name": current_manager.name,
         "email": current_manager.email
     }
+    

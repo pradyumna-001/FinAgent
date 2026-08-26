@@ -17,7 +17,7 @@ class AuthService:
         if (
             manager and manager.password_hash and 
             verify_password(password, manager.password_hash)
-        ): return Manager
+        ): return manager
         return None
 
     async def get_by_id(self, manager_id: int) -> Manager | None:
