@@ -7,6 +7,7 @@ from app.db.session import get_read_session
 from app.services.analysis import AnalysisService
 from app.services.auth import AuthService
 from app.core.security import decode_access_token
+from app.api.errors import InvalidTokenError
 from app.db.models import Manager
 
 
@@ -20,7 +21,11 @@ async def get_current_manager(
     if not credentials:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
-    payload = decode_access_token(credentials.credentials)
+    try:
+        payload = decode_access_token(credentials.credentials)
+    except InvalidTokenError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
     if not payload or "manager_id" not in payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 

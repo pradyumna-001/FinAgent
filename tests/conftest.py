@@ -12,6 +12,8 @@ from docker.errors import DockerException
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from testcontainers.community.postgres import PostgresContainer
 
+from app.utils.security import hash_password
+
 
 os.environ.setdefault(
     "DATABASE_URL",
@@ -86,10 +88,12 @@ def finagent_app_role(migrated_db_url: str) -> Generator[str, None, None]:
                 "ALTER ROLE finagent_app WITH PASSWORD 'finagent_app_pwd'"
             )
             # Insert test data
+            alice_hash = hash_password("alice123")
+            bob_hash = hash_password("bob123")
             await conn.execute(
-                "INSERT INTO managers (id, name, email) VALUES "
-                "(2, 'Alice', 'alice@example.com'), "
-                "(3, 'Bob', 'bob@example.com') "
+                "INSERT INTO managers (id, name, email, password_hash) VALUES "
+                f"(2, 'Alice', 'alice@example.com', '{alice_hash}'), "
+                f"(3, 'Bob', 'bob@example.com', '{bob_hash}') "
                 "ON CONFLICT (id) DO NOTHING"
             )
             await conn.execute(
