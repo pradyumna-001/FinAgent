@@ -9,9 +9,10 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.session import get_session
-from app.db.models import MorningNote
 from app.api.errors import MorningNoteNotFound
+from app.api.deps import get_current_manager
+from app.db.session import get_session
+from app.db.models import MorningNote, Manager
 from app.services.pipeline import _PIPELINE_REGISTRY
 from app.services.sse import sse_service
 
@@ -22,10 +23,9 @@ router = APIRouter(prefix="/morning-notes", tags=["morning-notes"])
 @router.get("")
 async def list_morning_notes(
     session: Annotated[AsyncSession, Depends(get_session)],
-    manager_id: int | None = Header(None, alias="manager-id"),
+    manager: Annotated[Manager, Depends(get_current_manager)]
 ) -> list[dict]:
-    if manager_id is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="manager_id header required")
+    manager_id = manager.id
 
     async with session.begin():
         await session.execute(
@@ -42,7 +42,22 @@ async def list_morning_notes(
 
 
 @router.get("/{note_id}/stream")
-async def stream_morning_note(note_id: str):
+async def stream_morning_note(
+    note_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    manager: Annotated[Manager, Depends(get_current_manager)]
+):
+    async with session.begin():
+        stmt = select(MorningNote).where(
+            MorningNote.id == note_id,
+            MorningNote.manager_id == manager.id
+        )
+        result = await session.execute(stmt)
+        note = result.scalar_one_or_none()
+
+        if note is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Morning note not found")
+        
     run_id = _PIPELINE_REGISTRY.get(note_id)
     if run_id is None:
         raise MorningNoteNotFound(note_id)
@@ -66,13 +81,9 @@ async def stream_morning_note(note_id: str):
 async def read_morning_note(
     note_id: int,
     session: Annotated[AsyncSession, Depends(get_session)],
-    manager_id: int | None = Header(None, alias="manager-id"),
+    manager: Annotated[Manager, Depends(get_current_manager)]
 ) -> dict:
-    if manager_id is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="manager_id header required")
-
-    if manager_id <= 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="manager_id must be an int greater than 0")
+    manager_id = manager.id
 
     async with session.begin():
         await session.execute(

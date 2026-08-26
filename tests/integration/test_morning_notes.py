@@ -2,24 +2,27 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
+from app.core.security import create_access_token
+
+
+def _make_token(manager_id: int) -> str:
+    return create_access_token({"sub": str(manager_id), "manager_id": manager_id})
 
 
 @pytest.mark.asyncio
-async def test_list_morning_notes_missing_header_returns_400() -> None:
+async def test_list_morning_notes_missing_header_returns_401() -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/morning-notes")
-    assert resp.status_code == 400
-    assert resp.json() == {"detail": "manager_id header required"}
+    assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_list_morning_notes_with_header_returns_list(
-    bound_engine: None,
-) -> None:
+async def test_list_morning_notes_with_header_returns_list(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/morning-notes", headers={"manager-id": "2"})
+        resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
+    print(resp.json())
     assert resp.status_code == 200
     assert isinstance(resp.json(), list)
 
@@ -28,13 +31,13 @@ async def test_list_morning_notes_with_header_returns_list(
 async def test_read_morning_notes_with_header_returns_all_fields(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/morning-notes", headers={"manager-id": "2"})
+        resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
         notes = resp.json()
         note_id = notes[0]["id"]
 
         resp = await client.get(
             f"/morning-notes/{note_id}",
-            headers={"manager-id": "2"}
+            headers={"Authorization": f"Bearer {_make_token(2)}"}
         )
 
         assert resp.status_code == 200
@@ -65,30 +68,29 @@ async def test_read_morning_notes_with_header_returns_all_fields(bound_engine: N
 
 
 @pytest.mark.asyncio
-async def test_read_morning_note_missing_header_returns_400(bound_engine: None, finagent_app_role: None) -> None:
+async def test_read_morning_note_missing_header_returns_401(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/morning-notes", headers={"manager-id": "2"})
+        resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
         notes = resp.json()
         note_id = notes[0]["id"]
 
         resp = await client.get(f"/morning-notes/{note_id}")
 
-    assert resp.status_code == 400
-    assert resp.json() == {"detail": "manager_id header required"}
+    assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_read_morning_notes_rls_isolation_returns_404(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/morning-notes", headers={"manager-id": "2"})
+        resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
         notes = resp.json()
         note_id = notes[0]["id"]
 
         resp = await client.get(
             f"/morning-notes/{note_id}",
-            headers={"manager-id": "1"}
+            headers={"Authorization": f"Bearer {_make_token(3)}"}
         )
 
         assert resp.status_code == 404
@@ -103,7 +105,7 @@ async def test_read_morning_notes_nonexistent_note_returns_404(bound_engine: Non
 
         resp = await client.get(
             f"/morning-notes/{note_id}",
-            headers={"manager-id": "2"}
+            headers={"Authorization": f"Bearer {_make_token(2)}"}
         )
 
         assert resp.status_code == 404
