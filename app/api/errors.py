@@ -14,4 +14,8 @@ class InvalidTriggerPayload(PipelineError):
     """Raised when the trigger request fails semantic validation beyond 
     pydantic's structural checks (e.g., company_id not in manager's book).
     """
-    
+
+class InvalidTokenError(Exception):
+    def __init__(self, message: str = "Invalid or expired token"):
+        self.message = message
+        super().__init__(self.message)
