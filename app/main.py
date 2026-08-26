@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.db.session import engine
 from app.middleware.correlation import CorrelationMiddleware
+from app.api.routes.auth import router as auth_router
 from app.api.routes.morning_notes import router as morning_notes_router
 from app.api.routes.feedback import router as feedback_router
 from app.api.routes.pipeline import router as pipeline_router
@@ -26,6 +27,7 @@ app = FastAPI(title="FinAgent", lifespan=lifespan)
 
 
 app.add_middleware(CorrelationMiddleware)
+app.include_router(auth_router)
 app.include_router(morning_notes_router)
 app.include_router(pipeline_router)
 app.include_router(feedback_router)
