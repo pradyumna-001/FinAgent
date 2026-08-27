@@ -58,7 +58,7 @@ async def stream_morning_note(
         if note is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Morning note not found")
         
-    run_id = _PIPELINE_REGISTRY.get(note_id)
+    run_id = _PIPELINE_REGISTRY.get(str(note_id))
     if run_id is None:
         raise MorningNoteNotFound(note_id)
 
