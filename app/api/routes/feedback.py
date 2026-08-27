@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Feedback
+from app.db.models import Feedback, Manager
+from app.api.deps import get_current_manager
 from app.db.session import get_session
 from app.schemas.feedback import FeedbackCreate, FeedbackResponse
 
@@ -14,15 +17,11 @@ router = APIRouter(prefix="/morning-notes/{note_id}/feedback", tags=["feedback"]
 async def create_feedback(
     note_id: int,
     payload: FeedbackCreate,
-    manager_id: int | None = Header(None, alias="manager-id"),
+    manager: Annotated[Manager, Depends(get_current_manager)],
     session: AsyncSession = Depends(get_session)
 ):
-    if manager_id is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="manager_id header required")
-
-    if manager_id <= 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="manager_id must be an int greater than 0")
-
+    manager_id = manager.id
+    
     async with session.begin():
         await session.execute(
             text(f"SET LOCAL app.manager_id = '{manager_id}'")

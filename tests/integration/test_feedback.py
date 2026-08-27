@@ -1,19 +1,24 @@
 from httpx import ASGITransport, AsyncClient
 import pytest
 
+from app.core.security import create_access_token
 from app.main import app
+
+
+def _make_token(manager_id: int) -> str:
+    return create_access_token({"sub": str(manager_id), "manager_id": manager_id})
 
 
 async def test_create_feedback_success_201(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/morning-notes", headers={"manager-id": "2"})
+        resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
         notes = resp.json()
         note_id = notes[0]["id"]
 
         resp = await client.post(
             f"/morning-notes/{note_id}/feedback",
-            headers={"manager-id": "2"},
+            headers={"Authorization": f"Bearer {_make_token(2)}"},
             json={
                 "action": "buy",
                 "justification": "Strong fundamentals",
@@ -29,7 +34,7 @@ async def test_create_feedback_success_201(bound_engine: None, finagent_app_role
 
 
 @pytest.mark.asyncio
-async def test_create_feedback_missing_header_returns_400() -> None:
+async def test_create_feedback_missing_header_returns_401() -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.post(
@@ -39,21 +44,20 @@ async def test_create_feedback_missing_header_returns_400() -> None:
                 "justification": "Strong fundamentals"
             }
         )
-    assert resp.status_code == 400
-    assert resp.json() == {"detail": "manager_id header required"}
+    assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_create_feedback_invalid_manager_id_returns_400(bound_engine: None, finagent_app_role: None) -> None:
+async def test_create_feedback_invalid_manager_id_returns_401(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/morning-notes", headers={"manager-id": "2"})
+        resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
         notes = resp.json()
         note_id = notes[0]["id"]
 
         resp = await client.post(
             f"/morning-notes/{note_id}/feedback",
-            headers={"manager-id": "-1"},
+            headers={"Authorization": f"Bearer {_make_token(-1)}"},
             json={
                 "action": "buy",
                 "justification": "Strong fundamentals",
@@ -61,8 +65,7 @@ async def test_create_feedback_invalid_manager_id_returns_400(bound_engine: None
             }
         )
 
-        assert resp.status_code == 400
-        assert resp.json() == {"detail": "manager_id must be an int greater than 0"}
+        assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -73,7 +76,7 @@ async def test_create_feedback_valid_manager_non_existent_note_id_returns_404(bo
 
         resp = await client.post(
             f"/morning-notes/{note_id}/feedback",
-            headers={"manager-id": "2"},
+            headers={"Authorization": f"Bearer {_make_token(2)}"},
             json={
                 "action": "buy",
                 "justification": "Strong fundamentals",
@@ -89,13 +92,13 @@ async def test_create_feedback_valid_manager_non_existent_note_id_returns_404(bo
 async def test_manager_a_posts_on_manager_b_note_returns_404(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/morning-notes", headers={"manager-id": "2"})
+        resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
         notes = resp.json()
         note_id = notes[0]["id"]
 
         resp = await client.post(
             f"/morning-notes/{note_id}/feedback",
-            headers={"manager-id": "1"},
+            headers={"Authorization": f"Bearer {_make_token(3)}"},
             json={
                 "action": "buy",
                 "justification": "Strong fundamentals",
@@ -111,13 +114,13 @@ async def test_manager_a_posts_on_manager_b_note_returns_404(bound_engine: None,
 async def test_create_feedback_missing_fields_returns_422(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/morning-notes", headers={"manager-id": "2"})
+        resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
         notes = resp.json()
         note_id = notes[0]["id"]
 
         resp = await client.post(
             f"/morning-notes/{note_id}/feedback",
-            headers={"manager-id": "2"},
+            headers={"Authorization": f"Bearer {_make_token(2)}"},
             json={
                 "justification": "Strong fundamentals",
             }
@@ -130,13 +133,13 @@ async def test_create_feedback_missing_fields_returns_422(bound_engine: None, fi
 async def test_create_feedback_invalid_action_returns_422(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/morning-notes", headers={"manager-id": "2"})
+        resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
         notes = resp.json()
         note_id = notes[0]["id"]
 
         resp = await client.post(
             f"/morning-notes/{note_id}/feedback",
-            headers={"manager-id": "2"},
+            headers={"Authorization": f"Bearer {_make_token(2)}"},
             json={
                 "action": "stand still",
                 "justification": "Strong fundamentals",
@@ -151,13 +154,13 @@ async def test_create_feedback_invalid_action_returns_422(bound_engine: None, fi
 async def test_create_feedback_short_justification_422(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/morning-notes", headers={"manager-id": "2"})
+        resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
         notes = resp.json()
         note_id = notes[0]["id"]
 
         resp = await client.post(
             f"/morning-notes/{note_id}/feedback",
-            headers={"manager-id": "2"},
+            headers={"Authorization": f"Bearer {_make_token(2)}"},
             json={
                 "action": "buy",
                 "justification": "short",
@@ -171,13 +174,13 @@ async def test_create_feedback_short_justification_422(bound_engine: None, finag
 async def test_create_duplicated_feedback_returns_409(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/morning-notes", headers={"manager-id": "2"})
+        resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
         notes = resp.json()
         note_id = [n["id"] for n in notes if n["note_text"] == "note-a1"][0]
 
         resp = await client.post(
             f"/morning-notes/{note_id}/feedback",
-            headers={"manager-id": "2"},
+            headers={"Authorization": f"Bearer {_make_token(2)}"},
             json={
                 "action": "buy",
                 "justification": "Strong fundamentals",
