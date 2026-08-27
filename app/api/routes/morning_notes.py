@@ -43,7 +43,7 @@ async def list_morning_notes(
 
 @router.get("/{note_id}/stream")
 async def stream_morning_note(
-    note_id: str,
+    note_id: int,
     session: Annotated[AsyncSession, Depends(get_session)],
     manager: Annotated[Manager, Depends(get_current_manager)]
 ):

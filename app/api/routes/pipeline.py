@@ -1,6 +1,11 @@
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, status
-from fastapi.responses import JSONResponse
+from typing import Annotated
 
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
+from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_current_manager
+from app.db.models import Manager
 from app.schemas.pipeline import TriggerRequest, TriggerResponse
 from app.services.pipeline import run_pipeline_stub
 
@@ -12,13 +17,9 @@ router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 async def trigger_pipeline(
     payload: TriggerRequest,
     background: BackgroundTasks,
-    manager_id: int | None = Header(None, alias="manager-id"),
+    manager: Annotated[Manager, Depends(get_current_manager)],
 ) -> JSONResponse:
-    if manager_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="manager-id header required",
-        )
+    manager_id = manager.id
 
     response = TriggerResponse()
     from app.services.pipeline import _PIPELINE_REGISTRY
