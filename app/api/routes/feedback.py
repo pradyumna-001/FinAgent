@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status, Header, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,7 +21,7 @@ async def create_feedback(
     session: AsyncSession = Depends(get_session)
 ):
     manager_id = manager.id
-    
+
     async with session.begin():
         await session.execute(
             text(f"SET LOCAL app.manager_id = '{manager_id}'")
