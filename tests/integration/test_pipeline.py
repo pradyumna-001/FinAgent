@@ -1,18 +1,23 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.core.security import create_access_token
 from app.main import app
 
 
+def _make_token(manager_id: int) -> str:
+    return create_access_token({"sub": str(manager_id), "manager_id": manager_id})
+
+
 @pytest.mark.asyncio
-async def test_trigger_returns_202_with_ids() -> None:
+async def test_trigger_returns_202_with_ids(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.post(
             "/pipeline/trigger",
-            headers={"manager-id": "1"},
+            headers={"Authorization": f"Bearer {_make_token(2)}"},
             json={
-                "manager_id": 1,
+                "manager_id": 2,
                 "portfolio_id": 42,
                 "company_id": 7,
             },
@@ -25,7 +30,7 @@ async def test_trigger_returns_202_with_ids() -> None:
 
 
 @pytest.mark.asyncio
-async def test_trigger_missing_header_header_returns_400() -> None:
+async def test_trigger_missing_header_header_returns_401(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.post(
@@ -36,38 +41,16 @@ async def test_trigger_missing_header_header_returns_400() -> None:
                 "company_id": 7,
             },
         )
-    assert resp.status_code == 400
-
-
-@pytest.mark.skip(reason="Old stub test - replaced by test_sse.py integration tests")
-@pytest.mark.asyncio
-async def test_stream_known_note_returns_one_event() -> None:
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://") as client:
-        trigger = await client.post(
-            "/pipeline/trigger",
-            headers={"manager-id": "1"},
-            json={"manager_id": 1, "portfolio_id": 42, "company_id": 7},
-        )
-        note_id = trigger.json()["morning_note_id"]
-
-        async with client.stream(
-            "GET", f"/morning-notes/{note_id}/stream"
-        ) as stream_resp:
-            assert stream_resp.status_code == 200
-            lines = []
-            async for line in stream_resp.aiter_lines():
-                lines.append(line)
-
-        data_lines = [line for line in lines if line.startswith("data:")]
-        assert len(data_lines) == 1
-        assert note_id in data_lines[0]
+    assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_stream_unknown_note_returns_404() -> None:
+async def test_stream_unknown_note_returns_404(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/morning-notes/00000000-0000-0000-0000-000000000000/stream")
-
+        resp = await client.get(
+            "/morning-notes/99999/stream",
+            headers={"Authorization": f"Bearer {_make_token(2)}"},
+        )
+    
     assert resp.status_code == 404
