@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +8,7 @@ from app.db.session import get_session
 from app.services.auth import AuthService
 from app.core.security import create_access_token
 from app.api.deps import get_current_manager
+from app.api.errors import ApiError, ErrorCodes
 from app.db.models import Manager
 
 
@@ -17,6 +18,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -32,7 +34,7 @@ async def login(
     auth_service = AuthService(session)
     manager = await auth_service.authenticate(data.email, data.password)
     if not manager:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        raise ApiError(status_code=status.HTTP_401_UNAUTHORIZED, code=ErrorCodes.UNAUTHORIZED, message="Invalid credentials")
 
     token = create_access_token({"sub": manager.email, "manager_id": manager.id})
     return TokenResponse(

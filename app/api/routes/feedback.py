@@ -1,11 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Feedback, Manager
 from app.api.deps import get_current_manager
+from app.api.errors import ApiError, ErrorCodes
 from app.db.session import get_session
 from app.schemas.feedback import FeedbackCreate, FeedbackResponse
 
@@ -34,7 +35,7 @@ async def create_feedback(
         )
         row = result.first()
         if row is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Morning note not found")
+            raise ApiError(status_code=status.HTTP_404_NOT_FOUND, code=ErrorCodes.NOT_FOUND, message="Morning note not found")
 
         result = await session.execute(
             text(
@@ -51,7 +52,7 @@ async def create_feedback(
             }
         )
         if result.first() is not None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This feedback already exists.")
+            raise ApiError(status_code=status.HTTP_409_CONFLICT, code=ErrorCodes.CONFLICT, message="This feedback already exists.")
 
         feedback = Feedback(
             morning_note_id=note_id,
