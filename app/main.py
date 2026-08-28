@@ -1,6 +1,5 @@
 from contextlib import asynccontextmanager
 import logging
-from typing import cast
 
 from fastapi import FastAPI, Response, status
 from fastapi.exceptions import RequestValidationError
@@ -15,7 +14,14 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.morning_notes import router as morning_notes_router
 from app.api.routes.feedback import router as feedback_router
 from app.api.routes.pipeline import router as pipeline_router
-from app.api.errors import ApiError, ApiErrorDetail, ErrorCodes, MorningNoteNotFound
+from app.api.errors import (
+    ApiError,
+    ErrorCodes,
+    PipelineError,
+    _build_dict_of_lists,
+    _json_response_from_api_error,
+    translate,
+)
 
 
 @asynccontextmanager
@@ -47,24 +53,9 @@ async def health() -> JSONResponse:
         return JSONResponse({"status": "degraded", "db": "unreachable"}, status_code=503)
 
 
-@app.exception_handler(MorningNoteNotFound)
-async def morning_note_not_found_handler(request, exc):
-    # TODO(#19): re-evaluate log level when this becomes a polling hot path
-    return JSONResponse(
-        status_code=404,
-        content={"detail": f"morning note {exc.args[0]!r} not found"}
-    )
-
-
 @app.exception_handler(ApiError)
 async def api_error_handler(request, exc):
-    detail = cast(ApiErrorDetail, exc.detail)
-    detail.path = request.url.path
-
-    return JSONResponse(
-        content=detail.model_dump(),
-        status_code=exc.status_code
-    )
+    return _json_response_from_api_error(exc, request)
 
 
 @app.exception_handler(Exception)
@@ -75,36 +66,17 @@ async def error_handler(request, exc):
         code=ErrorCodes.INTERNAL_ERROR,
         message="Internal server error"
     )
-    detail = cast(ApiErrorDetail, api_error.detail)
-    detail.path = request.url.path
-
-    return JSONResponse(
-        content=detail.model_dump(),
-        status_code=api_error.status_code
-    )
-
-
-def _build_dict_of_lists(errors):
-    details: dict[str, list[str]] = {}
-    for err in errors:
-        loc = err["loc"]
-        field = loc[-1]
-        msg = err["msg"]
-        if field not in details:
-            details[field] = []
-        details[field].append(msg)
-
-    return details
+    return _json_response_from_api_error(api_error, request)
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_handler(request, exc: RequestValidationError) -> Response:
     details = _build_dict_of_lists(exc.errors)
     api_error = ApiError(422, ErrorCodes.VALIDATION_ERROR, "Validation error", details=details)
-    detail = cast(ApiErrorDetail, api_error.detail)
-    detail.path = request.url.path
+    return _json_response_from_api_error(api_error, request)
 
-    return JSONResponse(
-        content=detail.model_dump(),
-        status_code=api_error.status_code
-    )
+
+@app.exception_handler(PipelineError)
+async def pipeline_error_handler(request, exc):
+    api_error = translate(exc)
+    return _json_response_from_api_error(api_error, request)

@@ -2,14 +2,14 @@ import json
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import StreamingResponse
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.errors import MorningNoteNotFound
+from app.api.errors import ApiError, ErrorCodes, MorningNoteNotFound
 from app.api.deps import get_current_manager
 from app.db.session import get_session
 from app.db.models import MorningNote, Manager
@@ -56,7 +56,7 @@ async def stream_morning_note(
         note = result.scalar_one_or_none()
 
         if note is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Morning note not found")
+            raise ApiError(status_code=status.HTTP_404_NOT_FOUND, code=ErrorCodes.NOT_FOUND, message="Morning note not found")
         
     run_id = _PIPELINE_REGISTRY.get(str(note_id))
     if run_id is None:
@@ -101,7 +101,7 @@ async def read_morning_note(
 
         note = result.scalar_one_or_none()
         if note is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Morning note not found")
+            raise ApiError(status_code=status.HTTP_404_NOT_FOUND, code=ErrorCodes.NOT_FOUND, message="Morning note not found")
 
         response = {
             "id": note.id,
