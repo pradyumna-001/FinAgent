@@ -66,20 +66,23 @@ class ApiError(HTTPException):
 
 logger = logging.getLogger(__name__)
 
-def _json_response_from_api_error(api_error: ApiError, request) -> JSONResponse:
+
+def json_response_from_api_error(api_error: ApiError, request) -> JSONResponse:
     detail = cast(ApiErrorDetail, api_error.detail)
-    detail.path = request.url.path
+    payload = detail.model_dump()
+    if payload.get("path") is None:
+        payload["path"] = request.url.path
     return JSONResponse(
-        content=detail.model_dump(),
+        content=payload,
         status_code=api_error.status_code
     )
 
 
-def _build_dict_of_lists(errors) -> dict[str, list[str]]:
+def build_dict_of_lists(errors) -> dict[str, list[str]]:
     details: dict[str, list[str]] = {}
     for err in errors:
-        loc = err["loc"]
-        field = loc[-1]
+        loc = err.get("loc", ())
+        field = loc[-1] if loc else "_root"
         msg = err["msg"]
         if field not in details:
             details[field] = []
@@ -88,13 +91,13 @@ def _build_dict_of_lists(errors) -> dict[str, list[str]]:
     return details
 
 
-_ERROR_MAP: dict[str, tuple[int, ErrorCodes, str]] = {
-    "MorningNoteNotFound": (
+_ERROR_MAP: dict[type[PipelineError], tuple[int, ErrorCodes, str]] = {
+    MorningNoteNotFound: (
         status.HTTP_404_NOT_FOUND, ErrorCodes.NO_ACTIVE_RUN,
         "Morning note not found in current stream.",
     ),
-    "InvalidTriggerPayload": (
-        status.HTTP_422_UNPROCESSABLE_ENTITY, ErrorCodes.INVALID_TRIGGER_PAYLOAD,
+    InvalidTriggerPayload: (
+        status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCodes.INVALID_TRIGGER_PAYLOAD,
         "Payload well-formed but breaks logic",
     ),
 }
@@ -105,7 +108,7 @@ def _build_api_error(status_code: int, code: ErrorCodes, message: str) -> ApiErr
 
 
 def translate(exc: PipelineError) -> ApiError:
-    spec = _ERROR_MAP.get(type(exc).__name__)
+    spec = _ERROR_MAP.get(type(exc))
     if spec is not None:
         status_code, code, message = spec
         return _build_api_error(status_code, code, message)
