@@ -85,7 +85,7 @@ async def test_create_feedback_valid_manager_non_existent_note_id_returns_404(bo
         )
 
         assert resp.status_code == 404
-        assert resp.json() == {"detail": "Morning note not found"}
+        assert resp.json()["code"] == "NOT_FOUND"
 
 
 @pytest.mark.asyncio
@@ -107,7 +107,7 @@ async def test_manager_a_posts_on_manager_b_note_returns_404(bound_engine: None,
         )
         
         assert resp.status_code == 404
-        assert resp.json() == {"detail": "Morning note not found"}
+        assert resp.json()["code"] == "NOT_FOUND"
 
 
 @pytest.mark.asyncio
@@ -127,6 +127,8 @@ async def test_create_feedback_missing_fields_returns_422(bound_engine: None, fi
         )
 
         assert resp.status_code == 422
+        assert resp.json()["code"] == "VALIDATION_ERROR"
+        assert "action" in resp.json()["details"]
 
 
 @pytest.mark.asyncio
@@ -147,7 +149,8 @@ async def test_create_feedback_invalid_action_returns_422(bound_engine: None, fi
         )
 
         assert resp.status_code == 422
-        assert resp.json()["detail"][0]["msg"] == "Input should be 'buy', 'sell' or 'keep'"
+        assert resp.json()["code"] == "VALIDATION_ERROR"
+        assert "action" in resp.json()["details"]
 
 
 @pytest.mark.asyncio
@@ -168,6 +171,8 @@ async def test_create_feedback_short_justification_422(bound_engine: None, finag
         )
 
         assert resp.status_code == 422
+        assert resp.json()["code"] == "VALIDATION_ERROR"
+        assert "justification" in resp.json()["details"]
 
 
 @pytest.mark.asyncio
@@ -189,4 +194,4 @@ async def test_create_duplicated_feedback_returns_409(bound_engine: None, finage
         )
 
         assert resp.status_code == 409
-        assert resp.json() == {'detail': 'This feedback already exists.'}
+        assert resp.json()["code"] == "CONFLICT"
