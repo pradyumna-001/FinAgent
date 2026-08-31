@@ -94,7 +94,7 @@ async def test_read_morning_notes_rls_isolation_returns_404(bound_engine: None, 
         )
 
         assert resp.status_code == 404
-        assert resp.json() == {"detail": "Morning note not found"}
+        assert resp.json()["code"] == "NOT_FOUND"
 
 
 @pytest.mark.asyncio
@@ -109,4 +109,4 @@ async def test_read_morning_notes_nonexistent_note_returns_404(bound_engine: Non
         )
 
         assert resp.status_code == 404
-        assert resp.json() == {"detail": "Morning note not found"}
+        assert resp.json()["code"] == "NOT_FOUND"
