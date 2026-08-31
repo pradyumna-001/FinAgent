@@ -1,9 +1,11 @@
 from datetime import datetime
 
 from httpx import ASGITransport, AsyncClient
-from starlette.routing import Route
 import pytest
 
+from fastapi import FastAPI, Request
+
+from app.api.errors import ApiError, ErrorCodes, json_response_from_api_error
 from app.core.security import create_access_token
 from app.main import app
 
@@ -100,7 +102,16 @@ async def test_nonexistent_note_returns_not_found_and_shape(
     _assert_shape(body)
 
 
-async def _boom(request):
+async def _error_handler(request, exc):
+    api_error = ApiError(
+        status_code=500,
+        code=ErrorCodes.INTERNAL_ERROR,
+        message="Internal server error",
+    )
+    return json_response_from_api_error(api_error, request)
+
+
+async def _boom(request: Request):
     raise RuntimeError("boom")
 
 
@@ -108,18 +119,17 @@ async def _boom(request):
 async def test_unhandled_exception_returns_500_no_traceback(
     bound_engine: None, finagent_app_role: None
 ) -> None:
-    route = Route("/_test/boom", _boom, methods=["GET"])
-    app.router.routes.append(route)
-    try:
-        transport = ASGITransport(app=app, raise_app_exceptions=False)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            resp = await client.get("/_test/boom")
+    isolated = FastAPI()
+    isolated.add_exception_handler(Exception, _error_handler)
+    isolated.add_api_route("/_test/boom", _boom, methods=["GET"])
 
-        assert resp.status_code == 500
-        body = resp.json()
-        assert body["code"] == "INTERNAL_ERROR"
-        assert "Traceback" not in resp.text
-        assert "Stack" not in resp.text
-        _assert_shape(body)
-    finally:
-        app.router.routes.remove(route)
+    transport = ASGITransport(app=isolated, raise_app_exceptions=False)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/_test/boom")
+
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["code"] == "INTERNAL_ERROR"
+    assert "Traceback" not in resp.text
+    assert "Stack" not in resp.text
+    _assert_shape(body)

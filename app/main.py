@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 import logging
 
-from fastapi import FastAPI, Response, status
+from fastapi import FastAPI, Response, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -18,8 +18,8 @@ from app.api.errors import (
     ApiError,
     ErrorCodes,
     PipelineError,
-    _build_dict_of_lists,
-    _json_response_from_api_error,
+    build_dict_of_lists,
+    json_response_from_api_error,
     translate,
 )
 
@@ -44,18 +44,24 @@ app.include_router(feedback_router)
 
 
 @app.get("/health")
-async def health() -> JSONResponse:
+async def health(request: Request) -> Response:
     try:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
         return JSONResponse({"status": "ok", "db": "ok"})
     except SQLAlchemyError:
-        return JSONResponse({"status": "degraded", "db": "unreachable"}, status_code=503)
+        api_error = ApiError(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            code=ErrorCodes.SERVICE_UNAVAILABLE,
+            message="Service degraded: database unreachable",
+            details={"db": ["unreachable"]},
+        )
+        return json_response_from_api_error(api_error, request)
 
 
 @app.exception_handler(ApiError)
 async def api_error_handler(request, exc):
-    return _json_response_from_api_error(exc, request)
+    return json_response_from_api_error(exc, request)
 
 
 @app.exception_handler(Exception)
@@ -66,17 +72,22 @@ async def error_handler(request, exc):
         code=ErrorCodes.INTERNAL_ERROR,
         message="Internal server error"
     )
-    return _json_response_from_api_error(api_error, request)
+    return json_response_from_api_error(api_error, request)
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_handler(request, exc: RequestValidationError) -> Response:
-    details = _build_dict_of_lists(exc.errors())
-    api_error = ApiError(422, ErrorCodes.VALIDATION_ERROR, "Validation error", details=details)
-    return _json_response_from_api_error(api_error, request)
+    details = build_dict_of_lists(exc.errors())
+    api_error = ApiError(
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        ErrorCodes.VALIDATION_ERROR,
+        "Validation error",
+        details=details,
+    )
+    return json_response_from_api_error(api_error, request)
 
 
 @app.exception_handler(PipelineError)
 async def pipeline_error_handler(request, exc):
     api_error = translate(exc)
-    return _json_response_from_api_error(api_error, request)
+    return json_response_from_api_error(api_error, request)

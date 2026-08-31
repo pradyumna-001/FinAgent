@@ -25,4 +25,8 @@ async def test_health_returns_503_when_db_raises(monkeypatch: pytest.MonkeyPatch
 
 
     assert resp.status_code == 503
-    assert resp.json() == {"status": "degraded", "db": "unreachable"}
+    body = resp.json()
+    assert body["code"] == "SERVICE_UNAVAILABLE"
+    assert body["details"] == {"db": ["unreachable"]}
+    assert "timestamp" in body
+    assert body["path"] == "/health"

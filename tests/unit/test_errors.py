@@ -10,8 +10,8 @@ from app.api.errors import (
     InvalidTriggerPayload,
     MorningNoteNotFound,
     PipelineError,
-    _build_dict_of_lists,
-    _json_response_from_api_error,
+    build_dict_of_lists,
+    json_response_from_api_error,
     translate,
 )
 
@@ -64,12 +64,20 @@ def test_build_dict_of_lists_groups_by_field() -> None:
         {"loc": ("body", "justification"), "msg": "too short"},
     ]
 
-    details = _build_dict_of_lists(errors)
+    details = build_dict_of_lists(errors)
 
     assert details == {
         "action": ["field required", "unexpected value"],
         "justification": ["too short"],
     }
+
+
+def test_build_dict_of_lists_handles_empty_loc() -> None:
+    errors = [{"msg": "root-level failure"}]
+
+    details = build_dict_of_lists(errors)
+
+    assert details == {"_root": ["root-level failure"]}
 
 
 def test_json_response_from_api_error_backfills_path_and_serializes_shape() -> None:
@@ -83,7 +91,7 @@ def test_json_response_from_api_error_backfills_path_and_serializes_shape() -> N
     class FakeRequest:
         url = type("URL", (), {"path": "/morning-notes/n/1/feedback"})()
 
-    response = _json_response_from_api_error(api_error, FakeRequest())
+    response = json_response_from_api_error(api_error, FakeRequest())
 
     body = json.loads(str(response.body, "utf-8"))
     assert response.status_code == 422
