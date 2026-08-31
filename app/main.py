@@ -71,7 +71,7 @@ async def error_handler(request, exc):
 
 @app.exception_handler(RequestValidationError)
 async def validation_handler(request, exc: RequestValidationError) -> Response:
-    details = _build_dict_of_lists(exc.errors)
+    details = _build_dict_of_lists(exc.errors())
     api_error = ApiError(422, ErrorCodes.VALIDATION_ERROR, "Validation error", details=details)
     return _json_response_from_api_error(api_error, request)
 
