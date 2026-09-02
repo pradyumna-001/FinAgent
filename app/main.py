@@ -3,6 +3,7 @@ import logging
 
 from fastapi import FastAPI, Response, Request, status
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from sqlalchemy import text
@@ -22,6 +23,7 @@ from app.api.errors import (
     json_response_from_api_error,
     translate,
 )
+from app.core.config import settings
 
 
 @asynccontextmanager
@@ -35,7 +37,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="FinAgent", lifespan=lifespan)
 logger = logging.getLogger(__name__)
 
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ALLOW_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Authorization", "X-Pipeline-Run-Id", "X-Morning-Note-Id"],
+)
 app.add_middleware(CorrelationMiddleware)
 app.include_router(auth_router)
 app.include_router(morning_notes_router)
