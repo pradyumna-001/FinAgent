@@ -8,6 +8,10 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8", 
         extra="ignore"
     )
+    CORS_ALLOW_ORIGINS: list[str] = Field(
+        default=["http://localhost:5173", "http://127.0.0.1:5173"],
+        description="Allowed CORS origins (JSON array in env)",
+    )
 
     DATABASE_URL: str = Field(..., description="Async DSN, e.g. postgresql+asyncpg://")
     MIGRATION_DATABASE_URL: str = Field(..., description="Sync DSN for Alembic, e.g. postgresql+psycopg://")
