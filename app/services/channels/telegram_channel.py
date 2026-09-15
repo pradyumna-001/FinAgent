@@ -55,7 +55,7 @@ class TelegramChannel:
     async def await_decision(self, run_id: str, rec_id: int, timeout: float) -> bool | None:
         deadline = time.monotonic() + timeout
         key = decision_key(run_id, rec_id)
-        while time.monotinic() < deadline:
+        while time.monotonic() < deadline:
             value = await self._redis.get(key)
             if value is not None:
                 return value == "approved" if isinstance(value, str) else value == b"approved"
