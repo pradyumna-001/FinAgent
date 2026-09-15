@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     NVIDIA_NEMOTRON_MODEL: str = Field(default="nvidia/nemotron-3-ultra", description="Nemotron 3 Ultra model for editor agent")
     LANGCHAIN_API_KEY: str | None = Field(default=None, description="LangSmith API key")
     LANGCHAIN_TRACING_V2: str = Field(default="false", description="Enable LangSmith tracing")
-
+    TELEGRAM_BOT_TOKEN: str | None = Field(default=None, description="Telegram bot token; absent in dev/CI")
+    TELEGRAM_CHAT_ID: int | None = Field(default=None, description="Gestor chat ID for note delivery")
+    TELEGRAM_POLL_TIMEOUT_S: int = Field(default=30, description="Long-polling timeout per getUpdates call")
+    APPROVAL_TIMEOUT_S: int = Field(default=1800, description="Time budget to await a gestor decision")
 
 settings = Settings()
