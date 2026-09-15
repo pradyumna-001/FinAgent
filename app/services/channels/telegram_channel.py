@@ -2,6 +2,7 @@ import asyncio
 import logging
 import time
 
+import telegram
 from redis.asyncio import Redis
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 

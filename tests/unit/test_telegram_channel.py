@@ -5,8 +5,6 @@ No external services required — pure functions + Protocol shape checks.
 
 import pytest
 
-from app.services.channels.base import NotePayload
-
 
 def test_encode_decode_round_trip():
     from app.services.channels.telegram_channel import encode_callback, decode_callback
