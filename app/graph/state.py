@@ -61,6 +61,9 @@ class AgentState(TypedDict):
     confidence_scores: dict[str, float]
     data_freshness: Annotated[dict[str, datetime], merge_dicts]
     flags: Annotated[list[DataFlag], add]
+    recommendation_id: str | None
+    manager_decision: str | None
+    decision_channel: str | None
 
 
 def create_initial_state(
@@ -83,7 +86,10 @@ def create_initial_state(
         "recommendation": None,
         "confidence_scores": {},
         "data_freshness": {},
-        "flags": []
+        "flags": [],
+        "recommendation_id": None,
+        "manager_decision": None,
+        "decision_channel": None
     }
 
 
