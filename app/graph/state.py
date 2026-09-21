@@ -61,7 +61,7 @@ class AgentState(TypedDict):
     confidence_scores: dict[str, float]
     data_freshness: Annotated[dict[str, datetime], merge_dicts]
     flags: Annotated[list[DataFlag], add]
-    recommendation_id: str | None
+    recommendation_id: int | None
     manager_decision: str | None
     decision_channel: str | None
 
