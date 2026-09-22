@@ -88,4 +88,3 @@ async def persist_recommendation_node(state: AgentState) -> dict:
         "data_freshness": {"persist": datetime.now(UTC)},
         "flags": []
     }
-

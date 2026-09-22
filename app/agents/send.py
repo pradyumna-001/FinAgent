@@ -70,7 +70,6 @@ async def send_note_node(state: AgentState) -> dict:
         return {
             "flags": new_flags,
             "data_freshness": {"send": datetime.now(UTC)}
-
         }
 
     payload = NotePayload(
