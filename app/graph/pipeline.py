@@ -10,6 +10,9 @@ from app.agents.company import company_agent_node
 from app.agents.quant import quant_agent_node
 from app.agents.risk import risk_agent_node
 from app.agents.editor import editor_agent_node
+from app.agents.persist import persist_recommendation_node
+from app.agents.send import send_note_node
+from app.agents.approval_gate import approval_gate_node
 
 
 def validated_node(node_fn, name: str):
@@ -27,6 +30,9 @@ builder.add_node("company", validated_node(company_agent_node, "company"))
 builder.add_node("quant", validated_node(quant_agent_node, "quant"))
 builder.add_node("risk", validated_node(risk_agent_node, "risk"))
 builder.add_node("editor", validated_node(editor_agent_node, "editor"))
+builder.add_node("persist", validated_node(persist_recommendation_node, "persist"))
+builder.add_node("send", validated_node(send_note_node, "send"))
+builder.add_node("approval_gate", validated_node(approval_gate_node, "approval_gate"))
 
 builder.add_edge(START, "macro")
 builder.add_edge("macro", "company")
@@ -34,7 +40,10 @@ builder.add_edge("macro", "quant")
 builder.add_edge("company", "risk")
 builder.add_edge("quant", "risk")
 builder.add_edge("risk", "editor")
-builder.add_edge("editor", END)
+builder.add_edge("editor", "persist")
+builder.add_edge("persist", "send")
+builder.add_edge("send", "approval_gate")
+builder.add_edge("approval_gate", "END")
 
 
 async def create_graph() -> CompiledStateGraph:
