@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import String, DateTime, ForeignKey, Text, CheckConstraint, func, text
+from sqlalchemy import BigInteger, String, DateTime, ForeignKey, Text, CheckConstraint, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -97,6 +97,10 @@ class Recommendation(Base):
     justification: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    manager_decision: Mapped[str] = mapped_column(String(16), server_default=text("'pending'"), nullable=False)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    decision_channel: Mapped[str | None] = mapped_column(Text, nullable=True)
+    telegram_update_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, nullable=True)
 
 
 class FeedbackAction(str, Enum):

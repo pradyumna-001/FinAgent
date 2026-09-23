@@ -1,7 +1,7 @@
 """add manager decision columns to recommendations
 
 Revision ID: 1789584853
-Revises: 1787160772_add_hnsw_reindex_state_table.py
+Revises: add_hnsw_reindex_state
 Create Date: 2026-09-16 16:30:53.714239200
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = '1789584853'
-down_revision: Union[str, Sequence[str], None] = '1787160772'
+down_revision: Union[str, Sequence[str], None] = 'add_hnsw_reindex_state'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
