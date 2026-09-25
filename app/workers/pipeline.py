@@ -1,6 +1,7 @@
 """Celery application for FinAgent pipeline workers."""
 
 import asyncio
+from uuid import uuid4
 
 from celery import Celery
 from celery.schedules import crontab
@@ -11,7 +12,10 @@ from langgraph.graph.state import CompiledStateGraph
 from app.db.session import engine
 
 from app.core.config import settings
+from app.core.context import current_pipeline_run_id
 from app.graph.pipeline import compile_graph
+from app.graph.state import create_initial_state
+from app.workers.exceptions import WorkerNotInitializedError
 
 
 _loop: asyncio.AbstractEventLoop | None = None
@@ -81,4 +85,25 @@ def init_pipeline_resources(**kwargs):
 def shutdown_pipeline_resources(**kwargs):
     _loop.run_until_complete(_saver_cm.__aexit__(None, None, None))
     _loop.close()
-    
+
+
+@celery_app.task(bind=True, ignore_result=True)
+def run_daily_pipeline(self, manager_id: int, company_ticker: str) -> None:
+    if _graph is None or _loop is None:
+        raise WorkerNotInitializedError(...)
+
+    pipeline_run_id = uuid4()
+    morning_note_id = uuid4()
+    token = current_pipeline_run_id.set(str(pipeline_run_id))
+    try:
+        initial = create_initial_state(
+            manager_id=manager_id,
+            company_ticker=company_ticker,
+            pipeline_run_id=pipeline_run_id,
+            morning_note_id=morning_note_id
+        )
+        _loop.run_until_complete(
+            _graph.ainvoke(initial, config={"configurable": {"thread_id": str(pipeline_run_id)}})
+        )
+    finally:
+        current_pipeline_run_id.reset(token)
