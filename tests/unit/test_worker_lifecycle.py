@@ -1,5 +1,6 @@
 import pytest
 
+from app.workers.exceptions import WorkerNotInitializedError
 import app.workers.pipeline as wp
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -67,3 +68,9 @@ def test_shutdown_releases_resources():
 
     assert cm.exited is True
     assert wp._loop.is_closed()
+
+
+def test_run_daily_pipeline_raises_when_not_initialized():
+    with pytest.raises(WorkerNotInitializedError):
+        wp.run_daily_pipeline(manager_id=1, company_ticker="PETR4")
+

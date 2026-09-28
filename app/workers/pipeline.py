@@ -90,7 +90,7 @@ def shutdown_pipeline_resources(**kwargs):
 @celery_app.task(bind=True, ignore_result=True)
 def run_daily_pipeline(self, manager_id: int, company_ticker: str) -> None:
     if _graph is None or _loop is None:
-        raise WorkerNotInitializedError(...)
+        raise WorkerNotInitializedError("The worker is not initialized because graph or loop is None")
 
     pipeline_run_id = uuid4()
     morning_note_id = uuid4()
