@@ -1,3 +1,6 @@
+import asyncio
+import uuid
+
 import pytest
 
 from app.workers.exceptions import WorkerNotInitializedError
@@ -74,3 +77,25 @@ def test_run_daily_pipeline_raises_when_not_initialized():
     with pytest.raises(WorkerNotInitializedError):
         wp.run_daily_pipeline(manager_id=1, company_ticker="PETR4")
 
+
+def test_run_pipeline_happy_path():
+    captured = {}
+    async def _probe(initial, config):
+        captured["ctx"] = wp.current_pipeline_run_id.get()
+        captured["tid"] = config["configurable"]["thread_id"]
+
+    fake_graph = AsyncMock()
+    fake_graph.ainvoke.side_effect = _probe
+
+    wp._graph = fake_graph
+    wp._loop = asyncio.new_event_loop()
+
+    try:
+        wp.run_daily_pipeline(manager_id=1, company_ticker="PETR4")
+    finally:
+        wp._loop.close()
+
+    fake_graph.ainvoke.assert_awaited_once()
+    assert captured["ctx"] == captured["tid"]
+    uuid.UUID(captured["tid"])
+    assert wp.current_pipeline_run_id.get() is None

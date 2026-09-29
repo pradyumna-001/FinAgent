@@ -99,8 +99,8 @@ def run_daily_pipeline(self, manager_id: int, company_ticker: str) -> None:
         initial = create_initial_state(
             manager_id=manager_id,
             company_ticker=company_ticker,
-            pipeline_run_id=pipeline_run_id,
-            morning_note_id=morning_note_id
+            pipeline_run_id=str(pipeline_run_id),
+            morning_note_id=str(morning_note_id)
         )
         _loop.run_until_complete(
             _graph.ainvoke(initial, config={"configurable": {"thread_id": str(pipeline_run_id)}})
