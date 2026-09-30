@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -34,7 +35,7 @@ async def telegram_polling_loop() -> DataFlag:
     
     async with AsyncPostgresSaver.from_conn_string(dsn) as saver:
         try:
-            graph = compile_graph(saver)
+            graph = compile_graph(saver) 
 
             while True:
                 updates = await bot.get_updates(
@@ -104,6 +105,8 @@ async def telegram_polling_loop() -> DataFlag:
                     except TelegramError as e:
                         logger.warning("failed to answer/edit callback", exc_info=e)
                         await bot.answer_callback_query(cq.id, "erro ao processar")
+        except asyncio.CancelledError:
+            logger.info("telegram poller stopped by cancellation")
         finally:
             await redis.aclose()
 
