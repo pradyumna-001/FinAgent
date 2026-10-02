@@ -7,6 +7,7 @@ from telegram import Chat, Message
 from telegram.constants import ChatType
 
 from app.core.config import settings
+from app.services.decisions import decision_key
 from app.services.channels.telegram_channel import encode_callback
 from app.utils.flags import Severity
 from app.workers.telegram_poller import telegram_polling_loop
@@ -160,3 +161,44 @@ async def test_duplicate_decision_does_not_resume_graph(monkeypatch: pytest.Monk
     assert flag.message == "telegram poller stopped"
     assert fake_graph.invocations == []
     assert ("cq-1", "já registrado") in fake_bot.answered
+
+
+async def test_resume_failure_rollback_survives(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "TELEGRAM_BOT_TOKEN", "x")
+
+    fake_update = SimpleNamespace(
+        update_id=1,
+        callback_query=SimpleNamespace(
+            id="cq-1",
+            data=encode_callback("approve", "run-42", 7)
+        )
+    )
+
+    fake_bot = FakeBot(updates=[fake_update])
+    fake_redis = FakeRedis()
+    fake_graph = FakeGraph()
+
+    monkeypatch.setattr("app.workers.telegram_poller.Bot", lambda token: fake_bot)
+    monkeypatch.setattr("redis.asyncio.Redis", SimpleNamespace(from_url=lambda *a, **k: fake_redis))
+    monkeypatch.setattr(
+        "app.workers.telegram_poller.AsyncPostgresSaver",
+        SimpleNamespace(from_conn_string=lambda dsn: FakeSaver()),
+    )
+
+    fake_decision = {"value": True}
+    monkeypatch.setattr(
+        "app.workers.telegram_poller.handle_decision",
+        lambda redis, run_id, rec_id, approved: _fake_handle_decision(fake_decision),
+    )
+    monkeypatch.setattr("app.workers.telegram_poller.compile_graph", lambda saver: fake_graph)
+
+    async def failing_ainvoke(command, config):
+        raise RuntimeError("resume blew up")
+
+    fake_graph.ainvoke = failing_ainvoke
+
+    flag = await telegram_polling_loop()
+
+    assert flag.message == "telegram poller stopped"
+    assert decision_key(run_id="run-42", rec_id=7) in fake_redis.deleted_keys
+    assert ("cq-1", "erro ao processar — tente novamente") in fake_bot.answered
