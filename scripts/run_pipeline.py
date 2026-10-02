@@ -8,7 +8,7 @@ import time
 from datetime import datetime, UTC
 from pprint import pprint
 
-from app.graph.pipeline import create_graph, dev_graph, create_initial_state
+from app.graph.pipeline import compile_graph, dev_graph, create_initial_state
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -33,15 +33,27 @@ async def main(use_postgres: bool = False):
     }
 
     if use_postgres:
-        graph = await create_graph()
-        print("Using PostgresSaver")
-    else:
-        graph = dev_graph
-        print("Using InMemorySaver (dev)")
+        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
+        from app.db.session import engine
+
+        dsn = str(engine.url).replace("postgresql+asyncpg://", "postgresql://")
+        print("Using PostgresSaver")
+        async with AsyncPostgresSaver.from_conn_string(dsn) as saver:
+            await run_graph(compile_graph(saver), state, config)
+        return
+
+    print("Using InMemorySaver (dev)")
+    await run_graph(dev_graph, state, config)
+
+
+async def run_graph(graph, state, config):
     start = time.perf_counter()
     result = await graph.ainvoke(state, config=config)
     elapsed = time.perf_counter() - start
+
+    if "__interrupt__" in result:
+        print("Pipeline parked at approval_gate — decide via Telegram, then resume.")
 
     pprint(f"morning_note: {result.get('morning_note')}")
     pprint(f"recommendation: {result.get('recommendation')}")
