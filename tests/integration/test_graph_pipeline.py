@@ -3,20 +3,47 @@ from unittest.mock import MagicMock, AsyncMock, patch
 
 from app.utils.flags import DataFlag, Severity
 
-# Mock psycopg/libpq before app.graph.pipeline imports it
-sys.modules["psycopg"] = MagicMock()
-sys.modules["psycopg.pq"] = MagicMock()
-sys.modules["langgraph.checkpoint.postgres"] = MagicMock()
-sys.modules["langgraph.checkpoint.postgres.aio"] = MagicMock()
+original_psycopg = sys.modules.get("psycopg")
+original_psycopg_pq = sys.modules.get("psycopg.pq")
+original_lang_checkp_postgres = sys.modules.get("langgraph.checkpoint.postgres")
+original_lang_checkp_postgres_aio = sys.modules.get("langgraph.checkpoint.postgres.aio")
 
-import json  # noqa: E402
-import pytest  # noqa: E402
+try:
+    sys.modules["psycopg"] = MagicMock()
+    sys.modules["psycopg.pq"] = MagicMock()
+    sys.modules["langgraph.checkpoint.postgres"] = MagicMock()
+    sys.modules["langgraph.checkpoint.postgres.aio"] = MagicMock()
+    from app.graph.pipeline import dev_graph
 
-from datetime import datetime, UTC  # noqa: E402
-from app.services.tavily import TavilyArticle, TavilyResult  # noqa: E402
-from app.services.yfinance import QuoteMetrics, YfinanceResult  # noqa: E402
-from app.graph.pipeline import dev_graph  # noqa: E402
-from app.graph.state import create_initial_state, InvalidStateError  # noqa: E402
+finally:
+    if original_psycopg is not None:
+        sys.modules["psycopg"] = original_psycopg
+    else:
+        sys.modules.pop("psycopg", None)
+    
+    if original_psycopg_pq is not None:
+        sys.modules["psycopg.pq"] = original_psycopg_pq
+    else:
+        sys.modules.pop("psycopg.pq", None)
+    
+    if original_lang_checkp_postgres is not None:
+        sys.modules["langgraph.checkpoint.postgres"] = original_lang_checkp_postgres
+    else:
+        sys.modules.pop("langgraph.checkpoint.postgres", None)
+        
+    if original_lang_checkp_postgres_aio is not None:
+        sys.modules["langgraph.checkpoint.postgres.aio"] = original_lang_checkp_postgres
+    else:
+        sys.modules.pop("langgraph.checkpoint.postgres.aio", None)
+
+        
+import json
+import pytest 
+
+from datetime import datetime, UTC
+from app.services.tavily import TavilyArticle, TavilyResult
+from app.services.yfinance import QuoteMetrics, YfinanceResult
+from app.graph.state import create_initial_state, InvalidStateError
 
 THREAD_ID = "graph-test"
 
@@ -88,7 +115,7 @@ def patched_pipeline():
 
 @pytest.mark.asyncio
 async def test_validate_state_rejects_invalid():
-    bad_state = make_state(manager_id=0)  # invalid: not positive
+    bad_state = make_state(manager_id=0)
     with pytest.raises(InvalidStateError):
         await dev_graph.ainvoke(bad_state, config={"configurable": {"thread_id": THREAD_ID}})
 
@@ -105,12 +132,10 @@ async def test_confidence_scores_populated(patched_pipeline):
 async def test_parallel_execution(patched_pipeline):
     from app.utils.flags import DataFlag, Severity
 
-    # Override company Tavily to return an error flag
     with patch("app.agents.company.TavilyService") as CompT:
         CompT.return_value.search = AsyncMock(return_value=TavilyResult(
             articles=[], error=DataFlag(source="tavily", severity=Severity.WARNING, message="company fail")
         ))
-        # Override quant Yfinance to return an error flag
         with patch("app.agents.quant.YfinanceService") as Yf:
             from app.services.yfinance import YfinanceResult
             Yf.return_value.search = AsyncMock(return_value=YfinanceResult(
@@ -123,7 +148,6 @@ async def test_parallel_execution(patched_pipeline):
     assert any(f.source == "tavily" for f in flags), "company flag lost in merge"
     assert any(f.source == "yfinance" for f in flags), "quant flag lost in merge"
 
-    # Both data_freshness timestamps should be set and close together (within 1s)
     cf = result["data_freshness"]["company"]
     qf = result["data_freshness"]["quant"]
     assert abs((cf - qf).total_seconds()) < 1.0, "parallel timestamps diverged"
@@ -139,5 +163,3 @@ async def test_fail_visible_invariant(patched_pipeline):
 
     note = result["morning_note"]
     assert "[Aviso]: company - dados incompletos ou falhos" in note
-
-
