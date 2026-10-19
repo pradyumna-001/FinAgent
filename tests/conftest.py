@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 import os
 import subprocess
+import sys
 from collections.abc import Generator
 from pathlib import Path
 from typing import Iterator
@@ -13,6 +14,10 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from testcontainers.community.postgres import PostgresContainer
 
 from app.utils.security import hash_password
+
+# Windows: psycopg async requires SelectorEventLoop, not ProactorEventLoop
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 os.environ.setdefault(
@@ -172,4 +177,4 @@ def bound_engine(migrated_db_url: str) -> Iterator[None]:
     db_session.engine = engine
     db_session.SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
     yield
-    engine.sync_engine.dispose()
+    engine.sync_engine.dispose() 
