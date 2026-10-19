@@ -58,9 +58,6 @@ async def approval_gate_graph(migrated_db_url):
     dsn = migrated_db_url.replace("postgresql+asyncpg", "postgresql", 1)
     asyncpg_dsn = dsn.replace("postgresql://", "postgresql+asyncpg://")
 
-    # Rebind SessionLocal to test container so persist_recommendation_node works.
-    # persist.py and approval_gate.py import SessionLocal at module level, so we must
-    # rebind it there too.
     test_engine = create_async_engine(asyncpg_dsn, echo=False)
     db_session.engine = test_engine
     db_session.SessionLocal = async_sessionmaker(test_engine, expire_on_commit=False)
@@ -96,7 +93,6 @@ async def test_run_to_interrupt_parks_and_persists(approval_gate_graph, migrated
         "justification": "Strong fundamentals",
     }
 
-    # Insert parent chain: manager -> company -> portfolio -> morning_note -> recommendation
     conn = await asyncpg.connect(dsn)
     try:
         await conn.execute(
@@ -157,12 +153,12 @@ async def test_run_to_interrupt_parks_and_persists(approval_gate_graph, migrated
         result2 = await conn.fetch(
             "SELECT * FROM checkpoints WHERE thread_id = $1", thread_id
         )
-        assert result2, "parked checkpoint not persisted to real Postgres"
+        assert result2
 
         result3 = await conn.fetchval(
             "SELECT manager_decision FROM recommendations WHERE id = $1", 999999
         )
-        assert result3 == "pending", f"expected pending, got {result3}"
+        assert result3 == "pending"
     finally:
         await conn.close()
 
@@ -185,7 +181,6 @@ async def test_resume_persists_decision(approval_gate_graph, migrated_db_url):
         "justification": "Strong fundamentals",
     }
 
-    # Insert parent chain (no pre-inserted recommendation — persist node creates it)
     conn = await asyncpg.connect(dsn)
     try:
         await conn.execute(
@@ -227,14 +222,12 @@ async def test_resume_persists_decision(approval_gate_graph, migrated_db_url):
         fake_channel.return_value = MagicMock()
         fake_channel.return_value.send_note = AsyncMock()
 
-        # Run to interrupt
         result = await approval_gate_graph.ainvoke(
             state, config={"configurable": {"thread_id": thread_id}}
         )
         assert "__interrupt__" in result
         rec_id = result["__interrupt__"][0].value["recommendation_id"]
 
-        # Resume with approved decision
         result2 = await approval_gate_graph.ainvoke(
             Command(resume="approved"),
             config={"configurable": {"thread_id": thread_id}},
@@ -245,7 +238,6 @@ async def test_resume_persists_decision(approval_gate_graph, migrated_db_url):
         )
         assert snap.next == ()
 
-    # Assert DB decision was persisted
     conn = await asyncpg.connect(dsn)
     try:
         decision = await conn.fetchval(
@@ -257,9 +249,9 @@ async def test_resume_persists_decision(approval_gate_graph, migrated_db_url):
         channel = await conn.fetchval(
             "SELECT decision_channel FROM recommendations WHERE id = $1", rec_id
         )
-        assert decision == "approved", f"expected approved, got {decision}"
-        assert decided_at is not None, "decided_at should be set"
-        assert channel == "telegram", f"expected telegram, got {channel}"
+        assert decision == "approved"
+        assert decided_at is not None
+        assert channel == "telegram"
     finally:
         await conn.close()
 
@@ -284,7 +276,6 @@ async def test_replay_is_exactly_once(approval_gate_graph, migrated_db_url):
         "justification": "Strong fundamentals",
     }
 
-    # Insert parent chain
     conn = await asyncpg.connect(dsn)
     try:
         await conn.execute(
@@ -332,27 +323,24 @@ async def test_replay_is_exactly_once(approval_gate_graph, migrated_db_url):
         assert "__interrupt__" in result
         rec_id = result["__interrupt__"][0].value["recommendation_id"]
 
-    # Dedup via handle_decision against real redis (D2)
     redis = Redis.from_url("redis://localhost:6379/0", decode_responses=False)
     try:
         first = await handle_decision(redis, thread_id, rec_id, True)
         second = await handle_decision(redis, thread_id, rec_id, True)
-        assert first is True, "first write should succeed"
-        assert second is None, "duplicate write should return None"
+        assert first is True
+        assert second is None
 
-        # Thread state unchanged — no resume happened
         snap = await approval_gate_graph.aget_state(
             config={"configurable": {"thread_id": thread_id}}
         )
         assert snap.next == ("approval_gate",)
 
-        # No second recommendation row created
         conn2 = await asyncpg.connect(dsn)
         try:
             count = await conn2.fetchval(
                 "SELECT count(*) FROM recommendations WHERE id = $1", rec_id
             )
-            assert count == 1, f"expected 1 row, got {count}"
+            assert count == 1
         finally:
             await conn2.close()
     finally:
@@ -377,7 +365,6 @@ async def test_ghost_resume(approval_gate_graph, migrated_db_url):
         "justification": "Strong fundamentals",
     }
 
-    # Insert parent chain
     conn = await asyncpg.connect(dsn)
     try:
         await conn.execute(
@@ -419,7 +406,6 @@ async def test_ghost_resume(approval_gate_graph, migrated_db_url):
         fake_channel.return_value = MagicMock()
         fake_channel.return_value.send_note = AsyncMock()
 
-        # Run to interrupt, then resume to completion
         result = await approval_gate_graph.ainvoke(
             state, config={"configurable": {"thread_id": thread_id}}
         )
@@ -431,15 +417,11 @@ async def test_ghost_resume(approval_gate_graph, migrated_db_url):
         )
         assert "__interrupt__" not in result2
 
-        # Guard contract: completed run has no pending gate
         snap = await approval_gate_graph.aget_state(
             config={"configurable": {"thread_id": thread_id}}
         )
-        assert snap.next == (), "completed run has no pending gate (guard contract)"
+        assert snap.next == ()
 
-        # Raw semantics: resume on unknown thread does NOT raise "missing checkpoint"
-        # LangGraph starts a fresh run instead (may error on state validation, but
-        # not on missing checkpoint — that was the ghost bug we fixed)
         ghost_tid = str(uuid.uuid4())
         try:
             await approval_gate_graph.ainvoke(
@@ -447,6 +429,4 @@ async def test_ghost_resume(approval_gate_graph, migrated_db_url):
                 config={"configurable": {"thread_id": ghost_tid}},
             )
         except InvalidStateError:
-            # Fresh thread starts with empty state — validation error is expected,
-            # NOT a "missing checkpoint" error. The ghost bug is fixed.
             pass
