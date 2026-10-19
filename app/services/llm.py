@@ -1,5 +1,8 @@
 from app.core.config import settings
 from openai import AsyncOpenAI, APIConnectionError, APITimeoutError, RateLimitError, AuthenticationError
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 NVIDIA_API_KEY = settings.NVIDIA_API_KEY
@@ -32,7 +35,8 @@ async def summarize(system: str, user: str) -> str | None:
             return resp.choices[0].message.content
         except AuthenticationError:
             raise
-        except Exception:
+        except Exception as e:
+            logger.warning(f"llm summarize failed: {e.__class__.__name__}", exc_info=True)
             return None
 
 
@@ -47,5 +51,6 @@ async def summarize_nemotron(system: str, user: str) -> str | None:
         resp = await client.chat.completions.create(model=NEMOTRON_MODEL, messages=messages)  # type: ignore[arg-type]
         return resp.choices[0].message.content
 
-    except infra_errors:
+    except infra_errors as e:
+        logger.warning(f"llm summarize failed: {e.__class__.__name__}", exc_info=True)
         return None
