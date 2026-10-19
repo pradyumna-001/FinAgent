@@ -1,5 +1,4 @@
 import json
-from sqlalchemy import text
 from unittest.mock import patch, MagicMock, AsyncMock
 from langgraph.types import Command
 import pytest
@@ -268,7 +267,7 @@ async def test_resume_persists_decision(approval_gate_graph, migrated_db_url):
 async def test_replay_is_exactly_once(approval_gate_graph, migrated_db_url):
     import uuid
     from redis.asyncio import Redis
-    from app.services.decisions import handle_decision, decision_key
+    from app.services.decisions import handle_decision
 
     thread_id = str(uuid.uuid4())
     dsn = migrated_db_url.replace("postgresql+asyncpg", "postgresql", 1)
