@@ -44,8 +44,17 @@ async def test_approval_gate_node_invalid_decision() -> None:
     def mock_interrupt(data):
         return "invalid_decision"
 
-    with patch('app.agents.approval_gate.interrupt', side_effect=mock_interrupt):
+    with patch("app.agents.approval_gate.interrupt") as mock_interrupt:
+        mock_interrupt.return_value = "invalid_decision"
         result = await approval_gate_node(state)
+        payload = mock_interrupt.call_args[0][0]
+
+        assert payload["recommendation_id"] == 123
+        assert payload["action"] == "buy"
+        assert payload["ticker"] == "PETR4"
+        assert payload["confidence"] == 0.9
+        assert payload["justification"] == "Strong fundamentals"
+
         assert "flags" in result
         assert len(result["flags"]) == 1
         assert result["flags"][0].source == "approval_gate_node"
@@ -56,4 +65,40 @@ async def test_approval_gate_node_invalid_decision() -> None:
         assert "data_freshness" in result
         assert "approval_gate" in result["data_freshness"]
 
-    
+
+@pytest.mark.asyncio
+async def test_approval_gate_node_valid_decision() -> None:
+    state = create_initial_state(
+        manager_id=1,
+        company_ticker="PETR4",
+        pipeline_run_id="run-1",
+        morning_note_id="note-1"
+    )
+    state["recommendation_id"] = 123
+    state["recommendation"] = {
+        "action": "buy",
+        "confidence": 0.9,
+        "justification": "Strong fundamentals"
+    }
+
+    with patch("app.agents.approval_gate.interrupt") as mock_interrupt, \
+        patch("app.agents.approval_gate.session_write_decision") as mock_write:
+
+        mock_interrupt.return_value = "approved"
+        mock_write.return_value = None 
+        result = await approval_gate_node(state)
+
+        mock_interrupt.assert_called_once()
+        payload = mock_interrupt.call_args[0][0]
+        assert payload["recommendation_id"] == 123
+        assert payload["ticker"] == "PETR4"
+        assert payload["action"] == "buy"
+        assert payload["confidence"] == 0.9
+        assert payload["justification"] == "Strong fundamentals"
+
+        assert result["manager_decision"] == "approved"
+        assert result["decision_channel"] == "telegram"
+        assert "flags" in result
+        assert len(result["flags"]) == 0 
+        assert "data_freshness" in result
+        assert "approval_gate" in result["data_freshness"]
