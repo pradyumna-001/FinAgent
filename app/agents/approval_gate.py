@@ -85,7 +85,7 @@ async def session_write_decision(state: AgentState, recommendation_id: int, deci
     async with SessionLocal() as session:
         async with session.begin():
             await session.execute(
-                text(f"SET LOCAL app.manager_id = '{int(state['manager_id'])}'")
+                text(f"SET LOCAL app.manager_id = {int(state['manager_id'])}")
             )
             await session.execute(
                 text(

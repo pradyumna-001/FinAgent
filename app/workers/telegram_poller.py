@@ -34,6 +34,7 @@ async def telegram_polling_loop() -> DataFlag:
     dsn = str(engine.url).replace("postgresql+asyncpg://", "postgresql://")
     
     async with AsyncPostgresSaver.from_conn_string(dsn) as saver:
+        await saver.setup()
         try:
             graph = compile_graph(saver) 
 

@@ -61,7 +61,7 @@ async def persist_recommendation_node(state: AgentState) -> dict:
             )
 
             recommendation = Recommendation(
-                morning_note_id=state["morning_note_id"],
+                morning_note_id=int(state["morning_note_id"]),
                 action=state["recommendation"]["action"],
                 confidence=state["recommendation"]["confidence"],
                 justification=state["recommendation"]["justification"],
