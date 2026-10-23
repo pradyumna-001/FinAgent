@@ -3,15 +3,14 @@ import logging
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.types import Command
-
 from telegram import Bot, Message
 from telegram.error import TelegramError
 
 from app.core.config import settings
 from app.db.session import engine
 from app.graph.pipeline import compile_graph
-from app.services.decisions import decision_key, handle_decision
 from app.services.channels.telegram_channel import decode_callback
+from app.services.decisions import decision_key, handle_decision
 from app.utils.flags import DataFlag, Severity
 
 logger = logging.getLogger(__name__)
@@ -32,11 +31,11 @@ async def telegram_polling_loop() -> DataFlag:
 
     seen_key = "telegram:seen_update_ids"
     dsn = str(engine.url).replace("postgresql+asyncpg://", "postgresql://")
-    
+
     async with AsyncPostgresSaver.from_conn_string(dsn) as saver:
         await saver.setup()
         try:
-            graph = compile_graph(saver) 
+            graph = compile_graph(saver)
 
             while True:
                 updates = await bot.get_updates(

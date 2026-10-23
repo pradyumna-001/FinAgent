@@ -1,5 +1,6 @@
 import sys
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 from app.utils.flags import DataFlag, Severity
@@ -14,16 +15,16 @@ def mock_postgres_modules():
         "langgraph.checkpoint.postgres": sys.modules.get("langgraph.checkpoint.postgres"),
         "langgraph.checkpoint.postgres.aio": sys.modules.get("langgraph.checkpoint.postgres.aio"),
     }
-    
+
     sys.modules["psycopg"] = MagicMock()
     sys.modules["psycopg.pq"] = MagicMock()
     sys.modules["langgraph.checkpoint.postgres"] = MagicMock()
     sys.modules["langgraph.checkpoint.postgres.aio"] = MagicMock()
-    
+
     from app.graph.pipeline import dev_graph
-    
+
     yield dev_graph
-    
+
     # Restore
     for name, original in originals.items():
         if original is not None:
@@ -32,11 +33,12 @@ def mock_postgres_modules():
             sys.modules.pop(name, None)
 
 
-import json
-from datetime import datetime, UTC
-from app.services.tavily import TavilyArticle, TavilyResult
-from app.services.yfinance import QuoteMetrics, YfinanceResult
-from app.graph.state import create_initial_state, InvalidStateError
+import json  # noqa: E402
+from datetime import UTC, datetime  # noqa: E402
+
+from app.graph.state import InvalidStateError, create_initial_state  # noqa: E402
+from app.services.tavily import TavilyArticle, TavilyResult  # noqa: E402
+from app.services.yfinance import QuoteMetrics, YfinanceResult  # noqa: E402
 
 THREAD_ID = "graph-test"
 

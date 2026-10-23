@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from app.graph.state import MacroOutput, CompanyEvent, QuantOutput, RiskFlag
+from app.graph.state import CompanyEvent, MacroOutput, QuantOutput, RiskFlag
 from app.utils.flags import DataFlag
 
 

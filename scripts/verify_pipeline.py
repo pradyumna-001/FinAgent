@@ -24,16 +24,21 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from langgraph.types import Command
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver  # noqa: E402
+from langgraph.types import Command  # noqa: E402
+from sqlalchemy import text  # noqa: E402
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
 
-from app.core.config import settings
-from app.graph.pipeline import compile_graph
-from app.graph.state import create_initial_state
-from app.db.models import Manager, Company, Portfolio, MorningNote, MorningNoteStatus
-
+from app.core.config import settings  # noqa: E402
+from app.db.models import (  # noqa: E402
+    Company,
+    Manager,
+    MorningNote,
+    MorningNoteStatus,
+    Portfolio,
+)
+from app.graph.pipeline import compile_graph  # noqa: E402
+from app.graph.state import create_initial_state  # noqa: E402
 
 # =============================================================================
 # Helpers
@@ -70,14 +75,14 @@ def check_env_file() -> bool:
         print("       Copy .env.example to .env and fill in required values:")
         print("       NVIDIA_API_KEY, TAVILY_API_KEY, DATABASE_URL, MIGRATION_DATABASE_URL, REDIS_URL, SECRET_KEY")
         return False
-    
+
     # Load and check required keys
     from dotenv import load_dotenv
     load_dotenv(env_path)
-    
+
     required = [
-        "NVIDIA_API_KEY", "TAVILY_API_KEY", 
-        "DATABASE_URL", "MIGRATION_DATABASE_URL", 
+        "NVIDIA_API_KEY", "TAVILY_API_KEY",
+        "DATABASE_URL", "MIGRATION_DATABASE_URL",
         "REDIS_URL", "SECRET_KEY"
     ]
     missing = [k for k in required if not os.environ.get(k)]
@@ -106,18 +111,18 @@ async def wait_for_service(host: str, port: int, timeout: int = 30) -> bool:
 
 async def phase_infra_up(keep_running: bool) -> None:
     print("\n=== Phase 1: Starting Docker infrastructure ===")
-    
+
     # Check if already running
     result = subprocess.run(
-        ["docker-compose", "ps", "-q"], 
+        ["docker-compose", "ps", "-q"],
         cwd=ROOT, capture_output=True, text=True
     )
     if result.stdout.strip():
         print("  Containers already running, skipping docker-compose up")
         return
-    
+
     run_cmd(["docker-compose", "up", "-d", "--wait"])
-    
+
     # Explicit wait for ports (healthchecks can be slow on first start)
     print("  Waiting for Postgres (5434)...")
     if not await wait_for_service("localhost", 5434, 60):
@@ -125,7 +130,7 @@ async def phase_infra_up(keep_running: bool) -> None:
     print("  Waiting for Redis (6379)...")
     if not await wait_for_service("localhost", 6379, 30):
         raise RuntimeError("Redis not ready on port 6379")
-    
+
     print("  Infrastructure ready")
 
 
@@ -153,14 +158,14 @@ async def phase_seed_data() -> dict:
     Returns dict with IDs.
     """
     print("\n=== Phase 3: Seeding database ===")
-    
+
     # Use sync DSN for alembic-style operations
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
-    
+
     sync_url = settings.MIGRATION_DATABASE_URL
     engine = create_engine(sync_url)
-    
+
     with Session(engine) as session:
         # Manager
         mgr = session.query(Manager).filter_by(id=1).first()
@@ -170,7 +175,7 @@ async def phase_seed_data() -> dict:
             session.flush()
         manager_id = mgr.id
         print(f"  Manager: id={manager_id}")
-        
+
         # Company
         comp = session.query(Company).filter_by(ticker="PETR4").first()
         if not comp:
@@ -179,7 +184,7 @@ async def phase_seed_data() -> dict:
             session.flush()
         company_id = comp.id
         print(f"  Company: id={company_id}, ticker=PETR4")
-        
+
         # Portfolio
         port = session.query(Portfolio).filter_by(manager_id=manager_id).first()
         if not port:
@@ -188,7 +193,7 @@ async def phase_seed_data() -> dict:
             session.flush()
         portfolio_id = port.id
         print(f"  Portfolio: id={portfolio_id}")
-        
+
         # MorningNote (pending - will be updated by pipeline)
         note = session.query(MorningNote).filter_by(id=123).first()
         if not note:
@@ -207,11 +212,11 @@ async def phase_seed_data() -> dict:
             session.add(note)
         morning_note_id = note.id
         print(f"  MorningNote: id={morning_note_id}, status=pending")
-        
+
         session.commit()
-    
+
     engine.dispose()
-    
+
     return {
         "manager_id": manager_id,
         "company_id": company_id,
@@ -227,19 +232,19 @@ async def phase_seed_data() -> dict:
 async def phase_compile_graph() -> tuple:
     """Create AsyncPostgresSaver, setup checkpoints, compile graph."""
     print("\n=== Phase 4: Compiling graph with PostgresSaver ===")
-    
+
     # Convert asyncpg URL to psycopg for AsyncPostgresSaver
     dsn = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
     print(f"  DSN: {dsn.split('@')[0]}@...")  # hide password
-    
+
     saver_cm = AsyncPostgresSaver.from_conn_string(dsn)
     saver = await saver_cm.__aenter__()
     await saver.setup()
     print("  Checkpoint tables created/verified")
-    
+
     graph = compile_graph(saver)
     print("  Graph compiled with PostgresSaver")
-    
+
     return saver, saver_cm, graph
 
 
@@ -250,17 +255,17 @@ async def phase_compile_graph() -> tuple:
 async def phase_run_to_interrupt(graph, seed_ids: dict) -> tuple:
     """Run graph.ainvoke until approval_gate interrupt."""
     print("\n=== Phase 5: Running pipeline to approval gate ===")
-    
+
     pipeline_run_id = str(uuid4())
     print(f"  Pipeline run ID: {pipeline_run_id}")
-    
+
     state = create_initial_state(
         manager_id=seed_ids["manager_id"],
         company_ticker="PETR4",
         pipeline_run_id=pipeline_run_id,
         morning_note_id=str(seed_ids["morning_note_id"]),
     )
-    
+
     config = {
         "configurable": {"thread_id": pipeline_run_id},
         "tags": [
@@ -271,7 +276,7 @@ async def phase_run_to_interrupt(graph, seed_ids: dict) -> tuple:
             f"morning_note_id:{state['morning_note_id']}",
         ],
     }
-    
+
     print("  Invoking graph (this calls real LLMs and external APIs)...")
     start = time.perf_counter()
     try:
@@ -283,18 +288,18 @@ async def phase_run_to_interrupt(graph, seed_ids: dict) -> tuple:
         traceback.print_exc()
         raise
     elapsed = time.perf_counter() - start
-    
+
     print(f"  Graph returned in {elapsed:.2f}s")
-    
+
     if "__interrupt__" not in result:
         print("[WARN] No interrupt returned — pipeline may have completed or failed early")
         pprint(result.get("flags", []))
     else:
         print("  [OK] Pipeline parked at approval_gate")
         interrupt = result["__interrupt__"][0]
-        print(f"  Interrupt payload:")
+        print("  Interrupt payload:")
         pprint(interrupt.value)
-    
+
     return pipeline_run_id, result
 
 
@@ -305,15 +310,15 @@ async def phase_run_to_interrupt(graph, seed_ids: dict) -> tuple:
 async def phase_handle_gate(graph, pipeline_run_id: str, result: dict, no_telegram: bool) -> dict:
     """Resume the graph after approval gate interrupt."""
     print("\n=== Phase 6: Handling approval gate ===")
-    
+
     if "__interrupt__" not in result:
         print("  No interrupt to resume from")
         return result
-    
+
     interrupt = result["__interrupt__"][0]
     rec_id = interrupt.value["recommendation_id"]
     print(f"  Recommendation ID from interrupt: {rec_id}")
-    
+
     if no_telegram or not settings.TELEGRAM_BOT_TOKEN:
         print("  No Telegram configured — manually resuming with 'approved'")
         resume_value = "approved"
@@ -336,9 +341,9 @@ async def phase_handle_gate(graph, pipeline_run_id: str, result: dict, no_telegr
 async def phase_verify(pipeline_run_id: str, seed_ids: dict, result: dict, graph, saver) -> bool:
     """Query database and verify all expected outputs."""
     print("\n=== Phase 7: Verifying results in database ===")
-    
+
     all_ok = True
-    
+
     # 1. Use graph.aget_state to get the full checkpoint state (handles msgpack decoding)
     print("\n  1. Checking checkpoint state for generated content...")
     try:
@@ -352,7 +357,7 @@ async def phase_verify(pipeline_run_id: str, seed_ids: dict, result: dict, graph
         manager_decision = cv.get("manager_decision")
         decision_channel = cv.get("decision_channel")
         recommendation_id = cv.get("recommendation_id")
-        
+
         print(f"     morning_note length: {len(morning_note) if morning_note else 0}")
         print(f"     recommendation: {recommendation}")
         print(f"     confidence_scores: {confidence_scores}")
@@ -361,15 +366,15 @@ async def phase_verify(pipeline_run_id: str, seed_ids: dict, result: dict, graph
         print(f"     manager_decision: {manager_decision}")
         print(f"     decision_channel: {decision_channel}")
         print(f"     recommendation_id: {recommendation_id}")
-        
+
         if not morning_note or len(morning_note) < 50:
-            print(f"     [FAIL] Morning note text too short or empty")
+            print("     [FAIL] Morning note text too short or empty")
             all_ok = False
         if not recommendation:
-            print(f"     [FAIL] No recommendation in checkpoint")
+            print("     [FAIL] No recommendation in checkpoint")
             all_ok = False
         if not confidence_scores:
-            print(f"     [FAIL] confidence_scores empty")
+            print("     [FAIL] confidence_scores empty")
             all_ok = False
         if manager_decision != "approved":
             print(f"     [FAIL] Expected manager_decision='approved', got '{manager_decision}'")
@@ -380,12 +385,12 @@ async def phase_verify(pipeline_run_id: str, seed_ids: dict, result: dict, graph
     except Exception as e:
         print(f"     [FAIL] Failed to read checkpoint state: {e}")
         all_ok = False
-    
+
     # 2. Check recommendations table (persisted) - use async engine
     print("\n  2. Checking recommendations table...")
     async_engine = create_async_engine(settings.DATABASE_URL, echo=False)
     async_session = async_sessionmaker(async_engine, expire_on_commit=False)
-    
+
     async with async_session() as session:
         rec_result = await session.execute(
             text("SELECT id, morning_note_id, action, confidence, justification, "
@@ -400,22 +405,22 @@ async def phase_verify(pipeline_run_id: str, seed_ids: dict, result: dict, graph
                 print(f"     id={rec.id}, action={rec.action}, confidence={rec.confidence}")
                 print(f"     manager_decision={rec.manager_decision}, decided_at={rec.decided_at}")
                 print(f"     decision_channel={rec.decision_channel}, telegram_update_id={rec.telegram_update_id}")
-                
+
                 if rec.manager_decision == "approved":
                     approved_found = True
                     if rec.decided_at is None:
-                        print(f"     [FAIL] decided_at is NULL for approved recommendation")
+                        print("     [FAIL] decided_at is NULL for approved recommendation")
                         all_ok = False
                     if rec.decision_channel != "telegram":
                         print(f"     [FAIL] Expected decision_channel='telegram', got '{rec.decision_channel}'")
                         all_ok = False
             if not approved_found:
-                print(f"     [FAIL] No approved recommendation found")
+                print("     [FAIL] No approved recommendation found")
                 all_ok = False
         else:
             print(f"     [FAIL] No recommendations found for morning_note_id={seed_ids['morning_note_id']}")
             all_ok = False
-        
+
         # 3. Check checkpoints table - graph completion
         print("\n  3. Checking checkpoints table (graph completion)...")
         cp_result = await session.execute(
@@ -430,11 +435,11 @@ async def phase_verify(pipeline_run_id: str, seed_ids: dict, result: dict, graph
                 print(f"     [FAIL] Expected next=[] (completed), got {cp.next_node}")
                 all_ok = False
             else:
-                print(f"     [OK] Graph completed (next=[])")
+                print("     [OK] Graph completed (next=[])")
         else:
             print(f"     [FAIL] No checkpoint found for thread_id={pipeline_run_id}")
             all_ok = False
-        
+
         # 4. Verify RLS - try query without manager_id context (should return empty)
         print("\n  4. Verifying RLS isolation...")
         rls_result = await session.execute(
@@ -443,12 +448,12 @@ async def phase_verify(pipeline_run_id: str, seed_ids: dict, result: dict, graph
         )
         count = rls_result.scalar()
         if count == 0:
-            print(f"     [OK] RLS working: query without proper context returns 0 rows")
+            print("     [OK] RLS working: query without proper context returns 0 rows")
         else:
             print(f"     [WARN] RLS may not be filtering: count={count} for non-existent manager")
-    
+
     await async_engine.dispose()
-    
+
     print(f"\n  Overall verification: {'[OK] PASSED' if all_ok else '[FAIL] FAILED'}")
     return all_ok
 
@@ -460,18 +465,18 @@ async def phase_verify(pipeline_run_id: str, seed_ids: dict, result: dict, graph
 async def phase_idempotency(graph, seed_ids: dict, pipeline_run_id: str) -> bool:
     """Re-run with same morning_note_id — should skip gracefully."""
     print("\n=== Phase 8: Idempotency check (re-run same morning_note) ===")
-    
+
     # Create new pipeline_run_id but same morning_note_id
     new_run_id = str(uuid4())
     print(f"  New pipeline run ID: {new_run_id}")
-    
+
     state = create_initial_state(
         manager_id=seed_ids["manager_id"],
         company_ticker="PETR4",
         pipeline_run_id=new_run_id,
         morning_note_id=str(seed_ids["morning_note_id"]),
     )
-    
+
     config = {
         "configurable": {"thread_id": new_run_id},
         "tags": [
@@ -482,23 +487,23 @@ async def phase_idempotency(graph, seed_ids: dict, pipeline_run_id: str) -> bool
             f"morning_note_id:{state['morning_note_id']}",
         ],
     }
-    
+
     result = await graph.ainvoke(state, config=config)
-    
+
     # Check if it produced FATAL flag (no recommendation in state) or completed
     flags = result.get("flags", [])
     fatal_flags = [f for f in flags if getattr(f, "severity", None) == "FATAL" or (isinstance(f, dict) and f.get("severity") == "FATAL")]
-    
+
     if fatal_flags:
-        print(f"  [OK] Second run produced FATAL flag (expected — morning_note already completed)")
+        print("  [OK] Second run produced FATAL flag (expected — morning_note already completed)")
         for f in fatal_flags:
             print(f"     {f.get('message') if isinstance(f, dict) else f.message}")
         return True
     elif "__interrupt__" in result:
-        print(f"  [WARN] Second run also hit interrupt — may indicate idempotency gap")
+        print("  [WARN] Second run also hit interrupt — may indicate idempotency gap")
         return False
     else:
-        print(f"  [WARN] Second run completed without error — check for duplicate morning_notes")
+        print("  [WARN] Second run completed without error — check for duplicate morning_notes")
         return False
 
 
@@ -511,7 +516,7 @@ async def phase_cleanup(saver_cm, keep_running: bool) -> None:
         print("\n=== Phase 9: Keeping infrastructure running (--keep-running) ===")
         print("  Run 'docker-compose down -v' to stop and remove volumes")
         return
-    
+
     print("\n=== Phase 9: Tearing down infrastructure ===")
     try:
         if saver_cm:
@@ -533,16 +538,16 @@ async def main():
     parser.add_argument("--skip-idempotency", action="store_true", help="Skip idempotency check")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     args = parser.parse_args()
-    
+
     print("=" * 60)
     print("FinAgent Pipeline Verification")
     print("=" * 60)
-    
+
     saver = None
     saver_cm = None
     graph = None
     pipeline_run_id = None
-    
+
     try:
         # Pre-flight checks
         print("\n=== Pre-flight checks ===")
@@ -552,7 +557,7 @@ async def main():
             print("[FAIL] Docker daemon not running. Start Docker Desktop.")
             sys.exit(1)
         print("  .env OK, Docker OK")
-        
+
         # Phases
         await phase_infra_up(args.keep_running)
         await phase_migrations()
@@ -561,12 +566,12 @@ async def main():
         pipeline_run_id, result = await phase_run_to_interrupt(graph, seed_ids)
         result = await phase_handle_gate(graph, pipeline_run_id, result, args.no_telegram)
         ok = await phase_verify(pipeline_run_id, seed_ids, result, graph, saver)
-        
+
         if not args.skip_idempotency:
             await phase_idempotency(graph, seed_ids, pipeline_run_id)
-        
+
         await phase_cleanup(saver_cm, args.keep_running)
-        
+
         if ok:
             print("\n" + "=" * 60)
             print("[OK] ALL VERIFICATIONS PASSED")
@@ -577,7 +582,7 @@ async def main():
             print("[FAIL] SOME VERIFICATIONS FAILED")
             print("=" * 60)
             sys.exit(1)
-            
+
     except KeyboardInterrupt:
         print("\n\nInterrupted by user")
         await phase_cleanup(saver_cm, True)

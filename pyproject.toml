@@ -51,3 +51,37 @@ no_implicit_optional = true
 [[tool.mypy.overrides]]
 module = "app.core.config"
 ignore_errors = true
+
+[tool.ruff]
+exclude = [
+    "demo_*.py",
+    "scripts/debug_*.py",
+    "scripts/verify_pipeline.py",
+    "send_telegram_*.py",
+    "*.md",
+    "*.txt",
+    ".opencodeplanstest.txt",
+    "9V3TJhph4BA.txt",
+    "HACKATON_PLAN.md",
+    "PR_BODY.md",
+    "asd.md",
+    "docker-compose.yml.fixed",
+    "stop",
+    "test.md",
+    "linkedin_post.md",
+    "scripts/configure_pg_hba.sh",
+    "scripts/pg_hba.conf",
+    "scripts/postgresql.conf",
+    "issue_followup.md",
+    "docs/PR/**",
+    "docs/hackathon/**",
+    "docs/finagent-*.docx",
+    "docs/finagent-*.md",
+    "docs/journal/**",
+    "docs/learning-plan.md",
+    "docs/phase-1-2-plan.md",
+    "docs/plans/**",
+    "docs/issue-14-technical-overview.md",
+]
+lint.select = ["E", "F", "I", "W"]
+lint.ignore = ["E501", "B008", "C901", "PLR0915", "PLR0912", "PLR0913", "PLR1702", "TRY003", "RUF012"]

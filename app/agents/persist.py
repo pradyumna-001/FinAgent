@@ -9,7 +9,6 @@ from app.graph.state import AgentState
 from app.services.sse import sse_service
 from app.utils.flags import DataFlag, Severity
 
-
 logger = logging.getLogger(__name__)
 
 async def persist_recommendation_node(state: AgentState) -> dict:

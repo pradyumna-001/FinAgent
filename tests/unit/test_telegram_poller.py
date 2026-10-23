@@ -7,8 +7,8 @@ from telegram import Chat, Message
 from telegram.constants import ChatType
 
 from app.core.config import settings
-from app.services.decisions import decision_key
 from app.services.channels.telegram_channel import encode_callback
+from app.services.decisions import decision_key
 from app.utils.flags import Severity
 from app.workers.telegram_poller import telegram_polling_loop
 
