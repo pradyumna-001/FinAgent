@@ -67,6 +67,9 @@ class FakeSaver:
     async def __aexit__(self, *exc):
         pass
 
+    async def setup(self):
+        pass
+
 
 class FakeGraph:
     def __init__(self):

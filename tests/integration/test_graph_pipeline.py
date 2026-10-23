@@ -1,45 +1,38 @@
 import sys
 from unittest.mock import MagicMock, AsyncMock, patch
+import pytest
 
 from app.utils.flags import DataFlag, Severity
 
-original_psycopg = sys.modules.get("psycopg")
-original_psycopg_pq = sys.modules.get("psycopg.pq")
-original_lang_checkp_postgres = sys.modules.get("langgraph.checkpoint.postgres")
-original_lang_checkp_postgres_aio = sys.modules.get("langgraph.checkpoint.postgres.aio")
 
-try:
+@pytest.fixture(scope="module", autouse=True)
+def mock_postgres_modules():
+    """Scope psycopg/langgraph.checkpoint.postgres mocks to this module only."""
+    originals = {
+        "psycopg": sys.modules.get("psycopg"),
+        "psycopg.pq": sys.modules.get("psycopg.pq"),
+        "langgraph.checkpoint.postgres": sys.modules.get("langgraph.checkpoint.postgres"),
+        "langgraph.checkpoint.postgres.aio": sys.modules.get("langgraph.checkpoint.postgres.aio"),
+    }
+    
     sys.modules["psycopg"] = MagicMock()
     sys.modules["psycopg.pq"] = MagicMock()
     sys.modules["langgraph.checkpoint.postgres"] = MagicMock()
     sys.modules["langgraph.checkpoint.postgres.aio"] = MagicMock()
+    
     from app.graph.pipeline import dev_graph
-
-finally:
-    if original_psycopg is not None:
-        sys.modules["psycopg"] = original_psycopg
-    else:
-        sys.modules.pop("psycopg", None)
     
-    if original_psycopg_pq is not None:
-        sys.modules["psycopg.pq"] = original_psycopg_pq
-    else:
-        sys.modules.pop("psycopg.pq", None)
+    yield dev_graph
     
-    if original_lang_checkp_postgres is not None:
-        sys.modules["langgraph.checkpoint.postgres"] = original_lang_checkp_postgres
-    else:
-        sys.modules.pop("langgraph.checkpoint.postgres", None)
-        
-    if original_lang_checkp_postgres_aio is not None:
-        sys.modules["langgraph.checkpoint.postgres.aio"] = original_lang_checkp_postgres
-    else:
-        sys.modules.pop("langgraph.checkpoint.postgres.aio", None)
+    # Restore
+    for name, original in originals.items():
+        if original is not None:
+            sys.modules[name] = original
+        else:
+            sys.modules.pop(name, None)
 
-        
+
 import json
-import pytest 
-
 from datetime import datetime, UTC
 from app.services.tavily import TavilyArticle, TavilyResult
 from app.services.yfinance import QuoteMetrics, YfinanceResult
@@ -114,14 +107,16 @@ def patched_pipeline():
 
 
 @pytest.mark.asyncio
-async def test_validate_state_rejects_invalid():
+async def test_validate_state_rejects_invalid(mock_postgres_modules):
+    dev_graph = mock_postgres_modules
     bad_state = make_state(manager_id=0)
     with pytest.raises(InvalidStateError):
         await dev_graph.ainvoke(bad_state, config={"configurable": {"thread_id": THREAD_ID}})
 
 
 @pytest.mark.asyncio
-async def test_confidence_scores_populated(patched_pipeline):
+async def test_confidence_scores_populated(mock_postgres_modules, patched_pipeline):
+    dev_graph = mock_postgres_modules
     result = await dev_graph.ainvoke(make_state(), config={"configurable": {"thread_id": THREAD_ID}})
     scores = result["confidence_scores"]
     assert set(scores.keys()) == {"macro", "company", "quant", "risk", "overall"}
@@ -129,7 +124,8 @@ async def test_confidence_scores_populated(patched_pipeline):
 
 
 @pytest.mark.asyncio
-async def test_parallel_execution(patched_pipeline):
+async def test_parallel_execution(mock_postgres_modules, patched_pipeline):
+    dev_graph = mock_postgres_modules
     from app.utils.flags import DataFlag, Severity
 
     with patch("app.agents.company.TavilyService") as CompT:
@@ -154,7 +150,8 @@ async def test_parallel_execution(patched_pipeline):
 
 
 @pytest.mark.asyncio
-async def test_fail_visible_invariant(patched_pipeline):
+async def test_fail_visible_invariant(mock_postgres_modules, patched_pipeline):
+    dev_graph = mock_postgres_modules
     with patch("app.agents.company.TavilyService") as CompT:
         CompT.return_value.search = AsyncMock(return_value=TavilyResult(
             articles=[], error=DataFlag(source="tavily", severity=Severity.WARNING, message="company fail")
