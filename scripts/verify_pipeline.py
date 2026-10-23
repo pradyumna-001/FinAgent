@@ -24,21 +24,15 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver  # noqa: E402
-from langgraph.types import Command  # noqa: E402
-from sqlalchemy import text  # noqa: E402
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.types import Command
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.core.config import settings  # noqa: E402
-from app.db.models import (  # noqa: E402
-    Company,
-    Manager,
-    MorningNote,
-    MorningNoteStatus,
-    Portfolio,
-)
-from app.graph.pipeline import compile_graph  # noqa: E402
-from app.graph.state import create_initial_state  # noqa: E402
+from app.core.config import settings
+from app.db.models import Company, Manager, MorningNote, MorningNoteStatus, Portfolio
+from app.graph.pipeline import compile_graph
+from app.graph.state import create_initial_state
 
 # =============================================================================
 # Helpers

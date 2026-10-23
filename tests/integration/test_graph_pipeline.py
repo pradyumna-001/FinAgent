@@ -1,14 +1,19 @@
+import json
 import sys
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.graph.state import InvalidStateError, create_initial_state
+from app.services.tavily import TavilyArticle, TavilyResult
+from app.services.yfinance import QuoteMetrics, YfinanceResult
 from app.utils.flags import DataFlag, Severity
 
 
-@pytest.fixture(scope="module", autouse=True)
-def mock_postgres_modules():
-    """Scope psycopg/langgraph.checkpoint.postgres mocks to this module only."""
+@pytest.fixture(scope="module")
+def dev_graph():
+    """Import dev_graph with psycopg/langgraph.checkpoint.postgres mocked."""
     originals = {
         "psycopg": sys.modules.get("psycopg"),
         "psycopg.pq": sys.modules.get("psycopg.pq"),
@@ -32,13 +37,6 @@ def mock_postgres_modules():
         else:
             sys.modules.pop(name, None)
 
-
-import json  # noqa: E402
-from datetime import UTC, datetime  # noqa: E402
-
-from app.graph.state import InvalidStateError, create_initial_state  # noqa: E402
-from app.services.tavily import TavilyArticle, TavilyResult  # noqa: E402
-from app.services.yfinance import QuoteMetrics, YfinanceResult  # noqa: E402
 
 THREAD_ID = "graph-test"
 
@@ -109,16 +107,14 @@ def patched_pipeline():
 
 
 @pytest.mark.asyncio
-async def test_validate_state_rejects_invalid(mock_postgres_modules):
-    dev_graph = mock_postgres_modules
+async def test_validate_state_rejects_invalid(dev_graph):
     bad_state = make_state(manager_id=0)
     with pytest.raises(InvalidStateError):
         await dev_graph.ainvoke(bad_state, config={"configurable": {"thread_id": THREAD_ID}})
 
 
 @pytest.mark.asyncio
-async def test_confidence_scores_populated(mock_postgres_modules, patched_pipeline):
-    dev_graph = mock_postgres_modules
+async def test_confidence_scores_populated(dev_graph, patched_pipeline):
     result = await dev_graph.ainvoke(make_state(), config={"configurable": {"thread_id": THREAD_ID}})
     scores = result["confidence_scores"]
     assert set(scores.keys()) == {"macro", "company", "quant", "risk", "overall"}
@@ -126,8 +122,7 @@ async def test_confidence_scores_populated(mock_postgres_modules, patched_pipeli
 
 
 @pytest.mark.asyncio
-async def test_parallel_execution(mock_postgres_modules, patched_pipeline):
-    dev_graph = mock_postgres_modules
+async def test_parallel_execution(dev_graph, patched_pipeline):
     from app.utils.flags import DataFlag, Severity
 
     with patch("app.agents.company.TavilyService") as CompT:
@@ -152,8 +147,7 @@ async def test_parallel_execution(mock_postgres_modules, patched_pipeline):
 
 
 @pytest.mark.asyncio
-async def test_fail_visible_invariant(mock_postgres_modules, patched_pipeline):
-    dev_graph = mock_postgres_modules
+async def test_fail_visible_invariant(dev_graph, patched_pipeline):
     with patch("app.agents.company.TavilyService") as CompT:
         CompT.return_value.search = AsyncMock(return_value=TavilyResult(
             articles=[], error=DataFlag(source="tavily", severity=Severity.WARNING, message="company fail")
