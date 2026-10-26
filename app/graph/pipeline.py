@@ -11,6 +11,7 @@ from app.agents.persist import persist_recommendation_node
 from app.agents.quant import quant_agent_node
 from app.agents.risk import risk_agent_node
 from app.agents.send import send_note_node
+from app.graph.serialization import get_serializer
 from app.graph.state import AgentState, InvalidStateError, create_initial_state
 
 
@@ -50,6 +51,10 @@ builder.add_edge("finalize", END)
 def compile_graph(checkpointer) -> CompiledStateGraph:
     return builder.compile(checkpointer=checkpointer)
 
-dev_graph = builder.compile(checkpointer=InMemorySaver())
+
+# Create dev_graph with custom serializer for DataFlag and Severity
+_dev_saver = InMemorySaver()
+_dev_saver.serde = get_serializer()
+dev_graph = builder.compile(checkpointer=_dev_saver)
 
 __all__ = ["compile_graph", "dev_graph", "create_initial_state"]
