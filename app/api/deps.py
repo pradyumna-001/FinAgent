@@ -1,15 +1,15 @@
 from typing import Annotated
+
 from fastapi import Depends, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.errors import ApiError, ErrorCodes, InvalidTokenError
+from app.core.security import decode_access_token
+from app.db.models import Manager
 from app.db.session import get_read_session
 from app.services.analysis import AnalysisService
 from app.services.auth import AuthService
-from app.core.security import decode_access_token
-from app.api.errors import ApiError, ErrorCodes, InvalidTokenError
-from app.db.models import Manager
-
 
 security = HTTPBearer(auto_error=False)
 
@@ -33,7 +33,7 @@ async def get_current_manager(
     manager = await auth_service.get_by_id(payload["manager_id"])
     if not manager:
         raise ApiError(status_code=status.HTTP_401_UNAUTHORIZED, code=ErrorCodes.UNAUTHORIZED, message="Manager not found")
-    
+
     return manager
 
 

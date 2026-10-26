@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Optional, cast
 
@@ -21,7 +21,7 @@ class MorningNoteNotFound(PipelineError):
 
 
 class InvalidTriggerPayload(PipelineError):
-    """Raised when the trigger request fails semantic validation beyond 
+    """Raised when the trigger request fails semantic validation beyond
     pydantic's structural checks (e.g., company_id not in manager's book).
     """
 

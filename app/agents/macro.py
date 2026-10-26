@@ -1,15 +1,13 @@
-from datetime import datetime, UTC
-
 import logging
+from datetime import UTC, datetime
 
 from app.core.config import settings
 from app.graph.state import AgentState, MacroOutput
 from app.prompts.macro import MACRO_PROMPTS
 from app.services.llm import summarize
-from app.services.tavily import TavilyService, TavilyConfigError
 from app.services.sse import sse_service
+from app.services.tavily import TavilyConfigError, TavilyService
 from app.utils.flags import DataFlag, Severity
-
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +66,9 @@ async def macro_agent_node(state: AgentState) -> dict:
     result = await tavily.search(
         query="macro news Brazil",
         include_domains=[
-            "bcb.gov.br", 
-            "ibge.gov.br", 
-            "br.reuters.com", 
+            "bcb.gov.br",
+            "ibge.gov.br",
+            "br.reuters.com",
             "bloomberg.com.br"
         ],
         max_results=10

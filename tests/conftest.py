@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 import asyncio
 import os
 import subprocess
+import sys
 from collections.abc import Generator
 from pathlib import Path
 from typing import Iterator
@@ -13,6 +15,10 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from testcontainers.community.postgres import PostgresContainer
 
 from app.utils.security import hash_password
+
+# Windows: psycopg async requires SelectorEventLoop, not ProactorEventLoop
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 os.environ.setdefault(
@@ -35,6 +41,7 @@ os.environ.setdefault("LANGCHAIN_API_KEY", "")
 os.environ.setdefault("LANGCHAIN_TRACING_V2", "false")
 
 import app.db.session as db_session
+
 
 @pytest.fixture(scope="session")
 def pg_container() -> Generator[PostgresContainer, None, None]:

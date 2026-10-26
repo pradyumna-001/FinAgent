@@ -1,11 +1,10 @@
 import json
 import logging
 import re
-from typing import cast, get_args, Literal
+from typing import Literal, cast, get_args
 
 from app.graph.state import RiskFlag
 from app.utils.flags import Severity
-
 
 logger = logging.getLogger(__name__)
 

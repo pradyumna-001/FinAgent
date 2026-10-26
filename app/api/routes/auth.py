@@ -4,13 +4,12 @@ from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_session
-from app.services.auth import AuthService
-from app.core.security import create_access_token
 from app.api.deps import get_current_manager
 from app.api.errors import ApiError, ErrorCodes
+from app.core.security import create_access_token
 from app.db.models import Manager
-
+from app.db.session import get_session
+from app.services.auth import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -54,4 +53,3 @@ async def me(current_manager: Annotated[Manager, Depends(get_current_manager)]) 
         "name": current_manager.name,
         "email": current_manager.email
     }
-    

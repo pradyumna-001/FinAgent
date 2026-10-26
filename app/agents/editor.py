@@ -1,7 +1,6 @@
-from datetime import datetime, UTC
-
 import json
 import logging
+from datetime import UTC, datetime
 
 from app.graph.state import AgentState
 from app.prompts.editor import EDITOR_PROMPTS
@@ -9,7 +8,6 @@ from app.services.llm import summarize_nemotron
 from app.services.sse import sse_service
 from app.utils.editor_confidence import apply_confidence_penalties
 from app.utils.flags import DataFlag, Severity
-
 
 logger = logging.getLogger(__name__)
 
@@ -143,21 +141,21 @@ async def editor_agent_node(state: AgentState) -> dict:
     if parsed.get("morning_note") is not None and parsed.get("recommendation") is not None and parsed.get("confidence_scores") is not None:
         is_morning_note = isinstance(parsed["morning_note"], str)
         is_recommendation = (
-            isinstance(parsed["recommendation"], dict) and 
-            set(parsed["recommendation"].keys()) == {"action", "justification", "confidence"} and 
-            parsed["recommendation"]["action"] in ("buy", "sell", "keep") and 
-            isinstance(parsed["recommendation"]["justification"], str) and 
+            isinstance(parsed["recommendation"], dict) and
+            set(parsed["recommendation"].keys()) == {"action", "justification", "confidence"} and
+            parsed["recommendation"]["action"] in ("buy", "sell", "keep") and
+            isinstance(parsed["recommendation"]["justification"], str) and
             isinstance(parsed["recommendation"]["confidence"], float)
         )
         is_confidence_scores = (
-            isinstance(parsed["confidence_scores"], dict) and 
-            all(isinstance(v, float) for v in parsed["confidence_scores"].values()) and 
-            set(parsed["confidence_scores"].keys()) == {"macro", "company", "quant", "risk", "overall"} 
+            isinstance(parsed["confidence_scores"], dict) and
+            all(isinstance(v, float) for v in parsed["confidence_scores"].values()) and
+            set(parsed["confidence_scores"].keys()) == {"macro", "company", "quant", "risk", "overall"}
         )
 
         if (
-            not is_morning_note or 
-            not is_recommendation or 
+            not is_morning_note or
+            not is_recommendation or
             not is_confidence_scores
         ):
             new_flags.append(

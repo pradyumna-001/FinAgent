@@ -8,7 +8,6 @@ from app.db.models import Manager
 from app.schemas.pipeline import TriggerRequest, TriggerResponse
 from app.services.pipeline import run_pipeline_stub
 
-
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
 

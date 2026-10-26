@@ -1,21 +1,18 @@
 import json
-
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import StreamingResponse
-
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.errors import ApiError, ErrorCodes, MorningNoteNotFound
 from app.api.deps import get_current_manager
+from app.api.errors import ApiError, ErrorCodes, MorningNoteNotFound
+from app.db.models import Manager, MorningNote
 from app.db.session import get_session
-from app.db.models import MorningNote, Manager
 from app.services.pipeline import _PIPELINE_REGISTRY
 from app.services.sse import sse_service
-
 
 router = APIRouter(prefix="/morning-notes", tags=["morning-notes"])
 
@@ -57,7 +54,7 @@ async def stream_morning_note(
 
         if note is None:
             raise ApiError(status_code=status.HTTP_404_NOT_FOUND, code=ErrorCodes.NOT_FOUND, message="Morning note not found")
-        
+
     run_id = _PIPELINE_REGISTRY.get(str(note_id))
     if run_id is None:
         raise MorningNoteNotFound(note_id)
@@ -67,7 +64,7 @@ async def stream_morning_note(
             yield f"data: {json.dumps(event)}\n\n"
 
     return StreamingResponse(
-        event_stream(), 
+        event_stream(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -125,5 +122,5 @@ async def read_morning_note(
             "company_ticker": note.company.ticker,
             "company_name": note.company.name
         }
-        
+
     return response

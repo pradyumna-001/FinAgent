@@ -52,5 +52,5 @@ async def test_stream_unknown_note_returns_404(bound_engine: None, finagent_app_
             "/morning-notes/99999/stream",
             headers={"Authorization": f"Bearer {_make_token(2)}"},
         )
-    
+
     assert resp.status_code == 404

@@ -6,9 +6,10 @@ Create Date: 2026-08-19 14:30:00.000000
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
+
+from alembic import op
 
 revision: str = "add_hnsw_reindex_state"
 down_revision: Union[str, Sequence[str], None] = "a74d884aeda7"

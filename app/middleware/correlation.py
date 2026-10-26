@@ -1,6 +1,7 @@
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+
 from app.core.context import current_morning_note_id, current_pipeline_run_id
 
 
@@ -10,7 +11,7 @@ class CorrelationMiddleware(BaseHTTPMiddleware):
         note = request.headers.get("X-Morning-Note-Id")
         p_token = current_pipeline_run_id.set(pipeline) if pipeline else None
         n_token = current_morning_note_id.set(note) if note else None
-        
+
         try:
             return await call_next(request)
         finally:

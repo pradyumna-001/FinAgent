@@ -1,6 +1,7 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.exc import OperationalError
+
 from app.main import app
 
 

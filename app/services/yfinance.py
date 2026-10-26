@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 import yfinance as yf
 
@@ -69,7 +69,7 @@ class YfinanceService:
                 market_time_dt = datetime.fromtimestamp(float(market_time_raw), UTC)
             except (TypeError, ValueError):
                 market_time_dt = None
-                
+
         if market_time_dt is not None:
             data_age_hours = (datetime.now(UTC).timestamp() - market_time_dt.timestamp()) / 3600
             if data_age_hours > self.max_data_age_hours:

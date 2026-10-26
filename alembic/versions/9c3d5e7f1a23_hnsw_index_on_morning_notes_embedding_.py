@@ -6,10 +6,10 @@ Create Date: 2026-07-28 19:30:00.000000
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 from pgvector.sqlalchemy import HALFVEC, Vector
 
+from alembic import op
 
 revision: str = "9c3d5e7f1a23"
 down_revision: Union[str, Sequence[str], None] = "8b2c4d6e9f01"
@@ -36,4 +36,3 @@ def downgrade() -> None:
         "morning_notes",
         sa.Column("embedding", Vector(2048), nullable=True),
     )
- 

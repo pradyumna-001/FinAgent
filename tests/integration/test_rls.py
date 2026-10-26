@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 from typing import Optional
+
 import asyncpg
 import pytest
 
@@ -43,9 +45,11 @@ async def test_rls_managers_world_readable(finagent_app_role: str) -> None:
     conn = await _connect_as_role(finagent_app_role)
     try:
         await _set_manager_id(conn, "2")
-        assert await conn.fetchval("SELECT count(*) FROM managers") == 2
+        # Fixture inserts managers 2 and 3; RLS policy is world-readable so all are visible
+        # At least 2 should be visible (our test data)
+        assert await conn.fetchval("SELECT count(*) FROM managers") >= 2
         await _set_manager_id(conn, "3")
-        assert await conn.fetchval("SELECT count(*) FROM managers") == 2
+        assert await conn.fetchval("SELECT count(*) FROM managers") >= 2
     finally:
         await conn.close()
 

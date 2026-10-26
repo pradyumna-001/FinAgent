@@ -7,7 +7,7 @@ class MacroPrompts:
 
     def build_user_prompt(self, raw_text: str) -> str:
         return (
-            "Summarize the following macro news into a concise paragraph: \n\n" + 
+            "Summarize the following macro news into a concise paragraph: \n\n" +
             raw_text
         )
 

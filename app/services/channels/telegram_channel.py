@@ -61,4 +61,3 @@ class TelegramChannel:
                 return value == "approved" if isinstance(value, str) else value == b"approved"
             await asyncio.sleep(1.0)
         return None
-    

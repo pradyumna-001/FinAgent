@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 from app.agents.editor import editor_agent_node
 from app.graph.state import create_initial_state
@@ -75,4 +76,3 @@ async def test_editor_agent_confidence_penalties_applied() -> None:
         assert state["confidence_scores"]["macro"] == 0.49
         assert state["confidence_scores"]["company"] == 0.49
         assert "Aviso" in state["morning_note"]
-        

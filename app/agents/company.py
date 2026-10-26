@@ -1,15 +1,13 @@
-from datetime import datetime, UTC
-
 import logging
+from datetime import UTC, datetime
 
 from app.core.config import settings
 from app.graph.state import AgentState, CompanyEvent
 from app.prompts.company import COMPANY_PROMPTS
 from app.services.llm import summarize
-from app.services.tavily import TavilyService, TavilyConfigError
 from app.services.sse import sse_service
+from app.services.tavily import TavilyConfigError, TavilyService
 from app.utils.flags import DataFlag, Severity
-
 
 logger = logging.getLogger(__name__)
 

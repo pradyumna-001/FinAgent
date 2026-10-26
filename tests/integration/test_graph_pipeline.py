@@ -1,22 +1,42 @@
+import json
 import sys
-from unittest.mock import MagicMock, AsyncMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from app.graph.state import InvalidStateError, create_initial_state
+from app.services.tavily import TavilyArticle, TavilyResult
+from app.services.yfinance import QuoteMetrics, YfinanceResult
 from app.utils.flags import DataFlag, Severity
 
-# Mock psycopg/libpq before app.graph.pipeline imports it
-sys.modules["psycopg"] = MagicMock()
-sys.modules["psycopg.pq"] = MagicMock()
-sys.modules["langgraph.checkpoint.postgres"] = MagicMock()
-sys.modules["langgraph.checkpoint.postgres.aio"] = MagicMock()
 
-import json  # noqa: E402
-import pytest  # noqa: E402
+@pytest.fixture(scope="module")
+def dev_graph():
+    """Import dev_graph with psycopg/langgraph.checkpoint.postgres mocked."""
+    originals = {
+        "psycopg": sys.modules.get("psycopg"),
+        "psycopg.pq": sys.modules.get("psycopg.pq"),
+        "langgraph.checkpoint.postgres": sys.modules.get("langgraph.checkpoint.postgres"),
+        "langgraph.checkpoint.postgres.aio": sys.modules.get("langgraph.checkpoint.postgres.aio"),
+    }
 
-from datetime import datetime, UTC  # noqa: E402
-from app.services.tavily import TavilyArticle, TavilyResult  # noqa: E402
-from app.services.yfinance import QuoteMetrics, YfinanceResult  # noqa: E402
-from app.graph.pipeline import dev_graph  # noqa: E402
-from app.graph.state import create_initial_state, InvalidStateError  # noqa: E402
+    sys.modules["psycopg"] = MagicMock()
+    sys.modules["psycopg.pq"] = MagicMock()
+    sys.modules["langgraph.checkpoint.postgres"] = MagicMock()
+    sys.modules["langgraph.checkpoint.postgres.aio"] = MagicMock()
+
+    from app.graph.pipeline import dev_graph
+
+    yield dev_graph
+
+    # Restore
+    for name, original in originals.items():
+        if original is not None:
+            sys.modules[name] = original
+        else:
+            sys.modules.pop(name, None)
+
 
 THREAD_ID = "graph-test"
 
@@ -70,7 +90,8 @@ def _quant_ok():
 
 
 @pytest.fixture
-def patched_pipeline():
+def patched_services():
+    """Patch external services (Tavily, Yfinance, LLM summarizers)."""
     with (
         patch("app.agents.macro.TavilyService") as MacroT,
         patch("app.agents.company.TavilyService") as CompT,
@@ -86,58 +107,107 @@ def patched_pipeline():
         yield
 
 
+@pytest.fixture
+def test_graph(dev_graph, patched_services):
+    """Create a test graph with persist_recommendation_node mocked to avoid DB."""
+    from langgraph.checkpoint.memory import InMemorySaver
+    from langgraph.graph import END, START, StateGraph
+
+    from app.agents.approval_gate import approval_gate_node
+    from app.agents.company import company_agent_node
+    from app.agents.editor import editor_agent_node
+    from app.agents.macro import macro_agent_node
+    from app.agents.quant import quant_agent_node
+    from app.agents.risk import risk_agent_node
+    from app.agents.send import send_note_node
+    from app.graph.state import AgentState, InvalidStateError
+
+    def validated_node(node_fn, name: str):
+        async def wrapper(state: AgentState) -> AgentState:
+            InvalidStateError().validate(state)
+            return await node_fn(state)
+        wrapper.__name__ = name
+        return wrapper
+
+    # Mock persist node to avoid database
+    mock_persist = AsyncMock(return_value={
+        "recommendation_id": 1,
+        "decision_channel": None,
+        "data_freshness": {"persist": datetime.now(UTC)},
+        "flags": []
+    })
+
+    builder = StateGraph(AgentState)
+    builder.add_node("macro", validated_node(macro_agent_node, "macro"))
+    builder.add_node("company", validated_node(company_agent_node, "company"))
+    builder.add_node("quant", validated_node(quant_agent_node, "quant"))
+    builder.add_node("risk", validated_node(risk_agent_node, "risk"))
+    builder.add_node("editor", validated_node(editor_agent_node, "editor"))
+    builder.add_node("persist", validated_node(mock_persist, "persist"))
+    builder.add_node("send", validated_node(send_note_node, "send"))
+    builder.add_node("approval_gate", validated_node(approval_gate_node, "approval_gate"))
+
+    builder.add_edge(START, "macro")
+    builder.add_edge("macro", "company")
+    builder.add_edge("macro", "quant")
+    builder.add_edge("company", "risk")
+    builder.add_edge("quant", "risk")
+    builder.add_edge("risk", "editor")
+    builder.add_edge("editor", "persist")
+    builder.add_edge("persist", "send")
+    builder.add_edge("send", "approval_gate")
+    builder.add_edge("approval_gate", END)
+
+    return builder.compile(checkpointer=InMemorySaver())
+
+
 @pytest.mark.asyncio
-async def test_validate_state_rejects_invalid():
-    bad_state = make_state(manager_id=0)  # invalid: not positive
+async def test_validate_state_rejects_invalid(test_graph):
+    bad_state = make_state(manager_id=0)
     with pytest.raises(InvalidStateError):
-        await dev_graph.ainvoke(bad_state, config={"configurable": {"thread_id": THREAD_ID}})
+        await test_graph.ainvoke(bad_state, config={"configurable": {"thread_id": THREAD_ID}})
 
 
 @pytest.mark.asyncio
-async def test_confidence_scores_populated(patched_pipeline):
-    result = await dev_graph.ainvoke(make_state(), config={"configurable": {"thread_id": THREAD_ID}})
+async def test_confidence_scores_populated(test_graph, patched_services):
+    result = await test_graph.ainvoke(make_state(), config={"configurable": {"thread_id": THREAD_ID}})
     scores = result["confidence_scores"]
     assert set(scores.keys()) == {"macro", "company", "quant", "risk", "overall"}
     assert all(isinstance(v, float) for v in scores.values())
 
 
 @pytest.mark.asyncio
-async def test_parallel_execution(patched_pipeline):
+async def test_parallel_execution(test_graph, patched_services):
     from app.utils.flags import DataFlag, Severity
 
-    # Override company Tavily to return an error flag
     with patch("app.agents.company.TavilyService") as CompT:
         CompT.return_value.search = AsyncMock(return_value=TavilyResult(
             articles=[], error=DataFlag(source="tavily", severity=Severity.WARNING, message="company fail")
         ))
-        # Override quant Yfinance to return an error flag
         with patch("app.agents.quant.YfinanceService") as Yf:
             from app.services.yfinance import YfinanceResult
             Yf.return_value.search = AsyncMock(return_value=YfinanceResult(
                 metrics=None,
                 error=DataFlag(source="yfinance", severity=Severity.WARNING, message="quant fail")
             ))
-            result = await dev_graph.ainvoke(make_state(), config={"configurable": {"thread_id": THREAD_ID}})
+            result = await test_graph.ainvoke(make_state(), config={"configurable": {"thread_id": THREAD_ID}})
 
     flags = result["flags"]
     assert any(f.source == "tavily" for f in flags), "company flag lost in merge"
     assert any(f.source == "yfinance" for f in flags), "quant flag lost in merge"
 
-    # Both data_freshness timestamps should be set and close together (within 1s)
     cf = result["data_freshness"]["company"]
     qf = result["data_freshness"]["quant"]
     assert abs((cf - qf).total_seconds()) < 1.0, "parallel timestamps diverged"
 
 
 @pytest.mark.asyncio
-async def test_fail_visible_invariant(patched_pipeline):
+async def test_fail_visible_invariant(test_graph, patched_services):
     with patch("app.agents.company.TavilyService") as CompT:
         CompT.return_value.search = AsyncMock(return_value=TavilyResult(
             articles=[], error=DataFlag(source="tavily", severity=Severity.WARNING, message="company fail")
         ))
-        result = await dev_graph.ainvoke(make_state(), config={"configurable": {"thread_id": THREAD_ID}})
+        result = await test_graph.ainvoke(make_state(), config={"configurable": {"thread_id": THREAD_ID}})
 
     note = result["morning_note"]
     assert "[Aviso]: company - dados incompletos ou falhos" in note
-
-

@@ -1,10 +1,11 @@
-from datetime import datetime
 import time
-from unittest.mock import patch, MagicMock
+from datetime import datetime
+from unittest.mock import MagicMock, patch
+
 import pandas as pd
 import pytest
 
-from app.services.yfinance import YfinanceService, YfinanceError
+from app.services.yfinance import YfinanceError, YfinanceService
 from app.utils.flags import Severity
 
 

@@ -1,9 +1,8 @@
 from datetime import datetime
 
-from httpx import ASGITransport, AsyncClient
 import pytest
-
 from fastapi import FastAPI, Request
+from httpx import ASGITransport, AsyncClient
 
 from app.api.errors import ApiError, ErrorCodes, json_response_from_api_error
 from app.core.security import create_access_token

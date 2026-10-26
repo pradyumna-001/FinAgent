@@ -1,5 +1,5 @@
 import sys
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # Mock psycopg/libpq before app.graph.pipeline imports it
 sys.modules["psycopg"] = MagicMock()
@@ -8,11 +8,25 @@ sys.modules["langgraph.checkpoint.postgres"] = MagicMock()
 sys.modules["langgraph.checkpoint.postgres.aio"] = MagicMock()
 
 import asyncio  # noqa: E402
-from datetime import UTC, datetime  # noqa: E402
 import json  # noqa: E402
-import pytest  # noqa: E402
+from datetime import UTC, datetime  # noqa: E402
 
-from app.graph.pipeline import dev_graph, create_initial_state  # noqa: E402
+import pytest  # noqa: E402
+from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
+from langgraph.graph import END, START, StateGraph  # noqa: E402
+
+from app.agents.approval_gate import approval_gate_node  # noqa: E402
+from app.agents.company import company_agent_node  # noqa: E402
+from app.agents.editor import editor_agent_node  # noqa: E402
+from app.agents.macro import macro_agent_node  # noqa: E402
+from app.agents.quant import quant_agent_node  # noqa: E402
+from app.agents.risk import risk_agent_node  # noqa: E402
+from app.agents.send import send_note_node  # noqa: E402
+from app.graph.state import (  # noqa: E402
+    AgentState,
+    InvalidStateError,
+    create_initial_state,
+)
 from app.services.sse import sse_service  # noqa: E402
 from app.services.tavily import TavilyArticle, TavilyResult  # noqa: E402
 from app.services.yfinance import QuoteMetrics, YfinanceResult  # noqa: E402
@@ -52,8 +66,17 @@ EDITOR_JSON = json.dumps({
 })
 
 
+def validated_node(node_fn, name: str):
+    async def wrapper(state: AgentState) -> AgentState:
+        InvalidStateError().validate(state)
+        return await node_fn(state)
+    wrapper.__name__ = name
+    return wrapper
+
+
 @pytest.fixture
-def patched_all_agents():
+def patched_services():
+    """Patch external services (Tavily, Yfinance, LLM summarizers)."""
     with (
         patch("app.agents.macro.TavilyService") as MacroT,
         patch("app.agents.company.TavilyService") as CompT,
@@ -61,7 +84,7 @@ def patched_all_agents():
         patch("app.agents.macro.summarize", new=AsyncMock(return_value="mac")),
         patch("app.agents.company.summarize", new=AsyncMock(return_value="comp")),
         patch("app.agents.risk.summarize", new=AsyncMock(return_value=RISK_JSON)),
-        patch("app.agents.editor.summarize_nemotron", new=AsyncMock(return_value=EDITOR_JSON))
+        patch("app.agents.editor.summarize_nemotron", new=AsyncMock(return_value=EDITOR_JSON)),
     ):
         MacroT.return_value.search = AsyncMock(return_value=_tavily_ok())
         CompT.return_value.search = AsyncMock(return_value=_tavily_ok())
@@ -69,9 +92,43 @@ def patched_all_agents():
         yield
 
 
+@pytest.fixture
+def test_graph(patched_services):
+    """Create a test graph with persist_recommendation_node mocked to avoid DB."""
+    mock_persist = AsyncMock(return_value={
+        "recommendation_id": 1,
+        "decision_channel": None,
+        "data_freshness": {"persist": datetime.now(UTC)},
+        "flags": []
+    })
+
+    builder = StateGraph(AgentState)
+    builder.add_node("macro", validated_node(macro_agent_node, "macro"))
+    builder.add_node("company", validated_node(company_agent_node, "company"))
+    builder.add_node("quant", validated_node(quant_agent_node, "quant"))
+    builder.add_node("risk", validated_node(risk_agent_node, "risk"))
+    builder.add_node("editor", validated_node(editor_agent_node, "editor"))
+    builder.add_node("persist", validated_node(mock_persist, "persist"))
+    builder.add_node("send", validated_node(send_note_node, "send"))
+    builder.add_node("approval_gate", validated_node(approval_gate_node, "approval_gate"))
+
+    builder.add_edge(START, "macro")
+    builder.add_edge("macro", "company")
+    builder.add_edge("macro", "quant")
+    builder.add_edge("company", "risk")
+    builder.add_edge("quant", "risk")
+    builder.add_edge("risk", "editor")
+    builder.add_edge("editor", "persist")
+    builder.add_edge("persist", "send")
+    builder.add_edge("send", "approval_gate")
+    builder.add_edge("approval_gate", END)
+
+    return builder.compile(checkpointer=InMemorySaver())
+
+
 # step 4: test structure
 @pytest.mark.asyncio
-async def test_sse_events_correct_order(patched_all_agents):
+async def test_sse_events_correct_order(test_graph, patched_services):
     pipeline_run_id = "test-run-order-123"
     morning_note_id = "test-note-order-123"
 
@@ -84,38 +141,38 @@ async def test_sse_events_correct_order(patched_all_agents):
 
     # Subscribe FIRST to ensure queue exists before graph emits events
     event_queue = asyncio.Queue()
-    
+
     async def collect_events():
         async for event in sse_service.subscribe(pipeline_run_id):
             await event_queue.put(event)
             if event.get("event_type") == "note_ready":
                 break
-    
+
     collector_task = asyncio.create_task(collect_events())
-    
+
     # Small delay to ensure subscription is ready
     await asyncio.sleep(0.01)
-    
+
     # Run graph
-    graph_task = asyncio.create_task(dev_graph.ainvoke(
+    graph_task = asyncio.create_task(test_graph.ainvoke(
         state,
         config={"configurable": {"thread_id": pipeline_run_id}}
     ))
-    
+
     # Wait for graph to complete
     await graph_task
-    
+
     # Wait for collector to finish (with timeout)
     try:
         await asyncio.wait_for(collector_task, timeout=10.0)
     except asyncio.TimeoutError:
         pytest.fail("SSE event collection timed out")
-    
+
     # Collect events from queue
     events = []
     while not event_queue.empty():
         events.append(event_queue.get_nowait())
-    
+
     event_types = [e["event_type"] for e in events]
     agent_names = [e.get("agent_name") for e in events if "agent_name" in e]
 
@@ -137,7 +194,7 @@ async def test_sse_events_correct_order(patched_all_agents):
 
 
 @pytest.mark.asyncio
-async def test_sse_parallel_agents_concurrent(patched_all_agents):
+async def test_sse_parallel_agents_concurrent(test_graph, patched_services):
     """Test that company and quant agents run in parallel - their events interleave."""
     pipeline_run_id = "test-run-parallel-123"
     morning_note_id = "test-note-parallel-123"
@@ -150,72 +207,72 @@ async def test_sse_parallel_agents_concurrent(patched_all_agents):
     )
 
     event_queue = asyncio.Queue()
-    
+
     async def collect_events():
         async for event in sse_service.subscribe(pipeline_run_id):
             await event_queue.put(event)
             if event.get("event_type") == "note_ready":
                 break
-    
+
     collector_task = asyncio.create_task(collect_events())
     await asyncio.sleep(0.01)
-    
-    graph_task = asyncio.create_task(dev_graph.ainvoke(
+
+    graph_task = asyncio.create_task(test_graph.ainvoke(
         state,
         config={"configurable": {"thread_id": pipeline_run_id}}
     ))
-    
+
     await graph_task
-    
+
     try:
         await asyncio.wait_for(collector_task, timeout=10.0)
     except asyncio.TimeoutError:
         pytest.fail("SSE event collection timed out")
-    
+
     events = []
     while not event_queue.empty():
         events.append(event_queue.get_nowait())
-    
+
     # Find company and quant events
     company_events = [e for e in events if e.get("agent_name") == "company"]
     quant_events = [e for e in events if e.get("agent_name") == "quant"]
-    
+
     # Each should have started and completed
     assert len(company_events) == 2
     assert len(quant_events) == 2
-    
+
     company_started = next(e for e in company_events if e["event_type"] == "agent_started")
     company_completed = next(e for e in company_events if e["event_type"] == "agent_completed")
     quant_started = next(e for e in quant_events if e["event_type"] == "agent_started")
     quant_completed = next(e for e in quant_events if e["event_type"] == "agent_completed")
-    
+
     # Parse timestamps
     from datetime import datetime
     cs_time = datetime.fromisoformat(company_started["timestamp"])
     cc_time = datetime.fromisoformat(company_completed["timestamp"])
     qs_time = datetime.fromisoformat(quant_started["timestamp"])
     qc_time = datetime.fromisoformat(quant_completed["timestamp"])
-    
+
     # Parallel execution: company and quant start times should be close (within 200ms)
     # Since they're triggered by the same edge from macro
     time_diff_start = abs((cs_time - qs_time).total_seconds())
     assert time_diff_start < 0.2, f"Company and quant should start concurrently, diff={time_diff_start}s"
-    
+
     # Their completion times should also be close (both are fast mocked calls)
     time_diff_complete = abs((cc_time - qc_time).total_seconds())
     assert time_diff_complete < 0.5, f"Company and quant should complete concurrently, diff={time_diff_complete}s"
-    
+
     # Both should start after macro completes
-    macro_completed = next(e for e in events 
+    macro_completed = next(e for e in events
                           if e.get("agent_name") == "macro" and e["event_type"] == "agent_completed")
     macro_time = datetime.fromisoformat(macro_completed["timestamp"])
-    
+
     assert cs_time > macro_time, "Company should start after macro completes"
     assert qs_time > macro_time, "Quant should start after macro completes"
 
 
 @pytest.mark.asyncio
-async def test_sse_note_ready_after_editor(patched_all_agents):
+async def test_sse_note_ready_after_editor(test_graph, patched_services):
     """Test that note_ready event is emitted after editor completes."""
     pipeline_run_id = "test-run-note-ready-123"
     morning_note_id = "test-note-note-ready-123"
@@ -228,53 +285,53 @@ async def test_sse_note_ready_after_editor(patched_all_agents):
     )
 
     event_queue = asyncio.Queue()
-    
+
     async def collect_events():
         async for event in sse_service.subscribe(pipeline_run_id):
             await event_queue.put(event)
             if event.get("event_type") == "note_ready":
                 break
-    
+
     collector_task = asyncio.create_task(collect_events())
     await asyncio.sleep(0.01)
-    
-    graph_task = asyncio.create_task(dev_graph.ainvoke(
+
+    graph_task = asyncio.create_task(test_graph.ainvoke(
         state,
         config={"configurable": {"thread_id": pipeline_run_id}}
     ))
-    
+
     await graph_task
-    
+
     try:
         await asyncio.wait_for(collector_task, timeout=10.0)
     except asyncio.TimeoutError:
         pytest.fail("SSE event collection timed out")
-    
+
     events = []
     while not event_queue.empty():
         events.append(event_queue.get_nowait())
-    
+
     # Find editor_completed and note_ready events
-    editor_completed = next(e for e in events 
+    editor_completed = next(e for e in events
                            if e.get("agent_name") == "editor" and e["event_type"] == "agent_completed")
     note_ready = next(e for e in events if e["event_type"] == "note_ready")
-    
+
     # note_ready should have morning_note_id
     assert note_ready["morning_note_id"] == morning_note_id
-    
+
     # note_ready timestamp should be after editor_completed
     editor_time = datetime.fromisoformat(editor_completed["timestamp"])
     note_time = datetime.fromisoformat(note_ready["timestamp"])
-    
+
     assert note_time > editor_time, "note_ready should be emitted after editor completes"
-    
+
     # Both should have same pipeline_run_id
     assert "pipeline_run_id" not in note_ready  # note_ready doesn't include pipeline_run_id
     assert note_ready["event_type"] == "note_ready"
 
 
 @pytest.mark.asyncio
-async def test_sse_pipeline_failed_on_error():
+async def test_sse_pipeline_failed_on_error(test_graph):
     """Test that pipeline_failed event is emitted with flags on error."""
     pipeline_run_id = "test-run-failed-123"
     morning_note_id = "test-note-failed-123"
@@ -301,56 +358,56 @@ async def test_sse_pipeline_failed_on_error():
         Yf.return_value.search = AsyncMock(return_value=_quant_ok())
 
         event_queue = asyncio.Queue()
-        
+
         async def collect_events():
             async for event in sse_service.subscribe(pipeline_run_id):
                 await event_queue.put(event)
                 if event.get("event_type") in ("note_ready", "pipeline_failed"):
                     break
-        
+
         collector_task = asyncio.create_task(collect_events())
         await asyncio.sleep(0.01)
-        
-        graph_task = asyncio.create_task(dev_graph.ainvoke(
+
+        graph_task = asyncio.create_task(test_graph.ainvoke(
             state,
             config={"configurable": {"thread_id": pipeline_run_id}}
         ))
-        
+
         await graph_task
-        
+
         try:
             await asyncio.wait_for(collector_task, timeout=10.0)
         except asyncio.TimeoutError:
             pytest.fail("SSE event collection timed out")
-        
+
         events = []
         while not event_queue.empty():
             events.append(event_queue.get_nowait())
-        
+
         # Print events for debugging
         event_types = [e["event_type"] for e in events]
         print(f"Events emitted: {event_types}")
-        
+
         # Should have pipeline_failed event (not note_ready)
         pipeline_failed = next((e for e in events if e["event_type"] == "pipeline_failed"), None)
         assert pipeline_failed is not None, f"pipeline_failed event should be emitted. Got: {event_types}"
-        
+
         # Should have flags array
         assert "flags" in pipeline_failed
         assert len(pipeline_failed["flags"]) > 0
-        
+
         # First flag should be the editor error
         first_flag = pipeline_failed["flags"][0]
         assert first_flag["source"] == "summarize_nemotron"
         assert first_flag["severity"] == "fatal"
-        
+
         # Should NOT have note_ready
         note_ready = next((e for e in events if e["event_type"] == "note_ready"), None)
         assert note_ready is None, "note_ready should not be emitted on pipeline failure"
 
 
 @pytest.mark.asyncio
-async def test_sse_queue_cleanup_on_completion(patched_all_agents):
+async def test_sse_queue_cleanup_on_completion(test_graph, patched_services):
     """Test that queue is cleaned up after pipeline completes (note_ready)."""
     pipeline_run_id = "test-run-cleanup-123"
     morning_note_id = "test-note-cleanup-123"
@@ -363,34 +420,34 @@ async def test_sse_queue_cleanup_on_completion(patched_all_agents):
     )
 
     event_queue = asyncio.Queue()
-    
+
     async def collect_events():
         async for event in sse_service.subscribe(pipeline_run_id):
             await event_queue.put(event)
             if event.get("event_type") == "note_ready":
                 break
-    
+
     collector_task = asyncio.create_task(collect_events())
     await asyncio.sleep(0.01)
-    
-    graph_task = asyncio.create_task(dev_graph.ainvoke(
+
+    graph_task = asyncio.create_task(test_graph.ainvoke(
         state,
         config={"configurable": {"thread_id": pipeline_run_id}}
     ))
-    
+
     await graph_task
-    
+
     try:
         await asyncio.wait_for(collector_task, timeout=10.0)
     except asyncio.TimeoutError:
         pytest.fail("SSE event collection timed out")
-    
+
     # Wait a bit for cleanup to happen
     await asyncio.sleep(0.05)
-    
+
     # Queue should be removed from sse_service
     assert pipeline_run_id not in sse_service._queues, "Queue should be cleaned up after note_ready"
-    
+
     # Trying to subscribe again should create a NEW queue (not reuse old one)
     new_queue = sse_service._get_queue(pipeline_run_id)
     assert new_queue is None, "Old queue should not exist after cleanup"
@@ -435,49 +492,85 @@ async def test_sse_multiple_concurrent_pipelines_isolated():
         # Collect events for both
         queue_1 = asyncio.Queue()
         queue_2 = asyncio.Queue()
-        
+
         async def collect_1():
             async for event in sse_service.subscribe(run_id_1):
                 await queue_1.put(event)
                 if event.get("event_type") == "note_ready":
                     break
-        
+
         async def collect_2():
             async for event in sse_service.subscribe(run_id_2):
                 await queue_2.put(event)
                 if event.get("event_type") == "note_ready":
                     break
-        
+
         task_1 = asyncio.create_task(collect_1())
         task_2 = asyncio.create_task(collect_2())
         await asyncio.sleep(0.01)
-        
-        # Run both graphs concurrently
-        graph_task_1 = asyncio.create_task(dev_graph.ainvoke(
+
+        # Run both graphs concurrently - each needs its own graph instance for isolation
+        from langgraph.checkpoint.memory import InMemorySaver
+        from langgraph.graph import END, START, StateGraph
+
+        def build_graph():
+            mock_persist = AsyncMock(return_value={
+                "recommendation_id": 1,
+                "decision_channel": None,
+                "data_freshness": {"persist": datetime.now(UTC)},
+                "flags": []
+            })
+            builder = StateGraph(AgentState)
+            builder.add_node("macro", validated_node(macro_agent_node, "macro"))
+            builder.add_node("company", validated_node(company_agent_node, "company"))
+            builder.add_node("quant", validated_node(quant_agent_node, "quant"))
+            builder.add_node("risk", validated_node(risk_agent_node, "risk"))
+            builder.add_node("editor", validated_node(editor_agent_node, "editor"))
+            builder.add_node("persist", validated_node(mock_persist, "persist"))
+            builder.add_node("send", validated_node(send_note_node, "send"))
+            builder.add_node("approval_gate", validated_node(approval_gate_node, "approval_gate"))
+
+            builder.add_edge(START, "macro")
+            builder.add_edge("macro", "company")
+            builder.add_edge("macro", "quant")
+            builder.add_edge("company", "risk")
+            builder.add_edge("quant", "risk")
+            builder.add_edge("risk", "editor")
+            builder.add_edge("editor", "persist")
+            builder.add_edge("persist", "send")
+            builder.add_edge("send", "approval_gate")
+            builder.add_edge("approval_gate", END)
+
+            return builder.compile(checkpointer=InMemorySaver())
+
+        graph_1 = build_graph()
+        graph_2 = build_graph()
+
+        graph_task_1 = asyncio.create_task(graph_1.ainvoke(
             state_1,
             config={"configurable": {"thread_id": run_id_1}}
         ))
-        graph_task_2 = asyncio.create_task(dev_graph.ainvoke(
+        graph_task_2 = asyncio.create_task(graph_2.ainvoke(
             state_2,
             config={"configurable": {"thread_id": run_id_2}}
         ))
-        
+
         await asyncio.gather(graph_task_1, graph_task_2)
         await asyncio.gather(task_1, task_2)
-        
+
         # Collect events
         events_1 = []
         while not queue_1.empty():
             events_1.append(queue_1.get_nowait())
-        
+
         events_2 = []
         while not queue_2.empty():
             events_2.append(queue_2.get_nowait())
-        
+
         # Each pipeline should have its own complete event sequence
         event_types_1 = [e["event_type"] for e in events_1]
         event_types_2 = [e["event_type"] for e in events_2]
-        
+
         expected = [
             "agent_started", "agent_completed",
             "agent_started", "agent_completed",
@@ -486,14 +579,14 @@ async def test_sse_multiple_concurrent_pipelines_isolated():
             "agent_started", "agent_completed",
             "note_ready"
         ]
-        
+
         assert event_types_1 == expected, f"Pipeline 1 events: {event_types_1}"
         assert event_types_2 == expected, f"Pipeline 2 events: {event_types_2}"
-        
+
         # Events should be isolated - pipeline 1 shouldn't see pipeline 2's events
         agent_names_1 = [e.get("agent_name") for e in events_1 if "agent_name" in e]
         agent_names_2 = [e.get("agent_name") for e in events_2 if "agent_name" in e]
-        
+
         assert agent_names_1 == [
             "macro", "macro",
             "company", "company",
@@ -508,13 +601,12 @@ async def test_sse_multiple_concurrent_pipelines_isolated():
             "risk", "risk",
             "editor", "editor"
         ]
-        
+
         # Note ready should have correct morning_note_id for each
         note_ready_1 = next(e for e in events_1 if e["event_type"] == "note_ready")
         note_ready_2 = next(e for e in events_2 if e["event_type"] == "note_ready")
-        
+
         # We can't easily verify morning_note_id in events since it's only in note_ready
         # but we can verify both completed successfully
         assert note_ready_1["event_type"] == "note_ready"
         assert note_ready_2["event_type"] == "note_ready"
-        

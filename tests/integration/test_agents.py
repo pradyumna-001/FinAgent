@@ -1,10 +1,11 @@
-import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
-from app.agents.macro import macro_agent_node
+import pytest
+
 from app.agents.company import company_agent_node
+from app.agents.macro import macro_agent_node
 from app.agents.quant import quant_agent_node
-from app.graph.state import create_initial_state, DataFlag
+from app.graph.state import DataFlag, create_initial_state
 from app.services.tavily import TavilyResult
 from app.services.yfinance import YfinanceResult
 from app.utils.flags import Severity
@@ -70,4 +71,3 @@ async def test_pipeline_all_agents_fail_shares_state():
     assert set(state["data_freshness"]) == {"macro", "company", "quant"}
     assert state["manager_id"] == 1
     assert state["company_ticker"] == "PETR4"
-    

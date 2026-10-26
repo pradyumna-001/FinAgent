@@ -1,6 +1,7 @@
 from app.utils.flags import Severity
 from app.utils.risk_parse import parse_risk_json
 
+
 def test_parse_risk_valid_single_risk() -> None:
     text = '[{"probability": 0.3, "impact": "low", "description": "Limited downside risk", "severity": "info"}]'
     flags, dropped = parse_risk_json(text)
@@ -9,7 +10,7 @@ def test_parse_risk_valid_single_risk() -> None:
     assert flags[0]["probability"] == 0.3
     assert flags[0]["impact"] == "low"
     assert flags[0]["description"] == "Limited downside risk"
-    
+
 
 def test_parse_risk_three_risks() -> None:
     text = (
