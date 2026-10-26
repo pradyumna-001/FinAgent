@@ -1,4 +1,5 @@
 import pytest
+
 from ._helpers import fetch_scalar
 
 
@@ -57,4 +58,3 @@ async def test_indexes_on_morning_notes(migrated_db_url: str) -> None:
     assert "WHERE" in partial
     assert "status" in partial
     assert "'completed'" in partial
-    

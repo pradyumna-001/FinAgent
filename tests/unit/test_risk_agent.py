@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 from app.agents.risk import risk_agent_node
 from app.graph.state import create_initial_state

@@ -4,12 +4,11 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Feedback, Manager
 from app.api.deps import get_current_manager
 from app.api.errors import ApiError, ErrorCodes
+from app.db.models import Feedback, Manager
 from app.db.session import get_session
 from app.schemas.feedback import FeedbackCreate, FeedbackResponse
-
 
 router = APIRouter(prefix="/morning-notes/{note_id}/feedback", tags=["feedback"])
 
@@ -44,10 +43,10 @@ async def create_feedback(
             "action = :act AND justification = :jus AND "
             "(comment = :com OR (comment IS NULL AND :com IS NULL))"
             ), {
-            "mid": manager_id, 
-            "nid": note_id, 
-            "act": payload.action.value, 
-            "jus": payload.justification, 
+            "mid": manager_id,
+            "nid": note_id,
+            "act": payload.action.value,
+            "jus": payload.justification,
             "com": payload.comment
             }
         )

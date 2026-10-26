@@ -1,11 +1,11 @@
 import logging
 from datetime import UTC, datetime
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
-import pytest 
+import pytest
 
 from app.agents.quant import quant_agent_node
-from app.graph.state import create_initial_state, DataFlag
+from app.graph.state import DataFlag, create_initial_state
 from app.services.yfinance import QuoteMetrics, YfinanceResult
 from app.utils.flags import Severity
 

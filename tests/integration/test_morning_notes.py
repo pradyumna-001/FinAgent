@@ -1,8 +1,8 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.main import app
 from app.core.security import create_access_token
+from app.main import app
 
 
 def _make_token(manager_id: int) -> str:
@@ -52,7 +52,7 @@ async def test_read_morning_notes_with_header_returns_all_fields(bound_engine: N
         assert isinstance(data["data_freshness"], dict)
         assert isinstance(data["flags"], (list, dict))
         assert data["pipeline_run_id"] is None or isinstance(data["pipeline_run_id"], str)
-        
+
         rec = data["recommendation"]
         assert rec is None or isinstance(rec, dict)
         if rec:
@@ -61,7 +61,7 @@ async def test_read_morning_notes_with_header_returns_all_fields(bound_engine: N
             assert isinstance(rec["justification"], str)
             assert isinstance(rec["created_at"], str)
             assert rec["confirmed_at"] is None or isinstance(rec["confirmed_at"], str)
-        
+
         assert isinstance(data["manager_name"], str)
         assert isinstance(data["company_ticker"], str)
         assert isinstance(data["company_name"], str)

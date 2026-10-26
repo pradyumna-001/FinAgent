@@ -6,17 +6,15 @@ from uuid import uuid4
 from celery import Celery
 from celery.schedules import crontab
 from celery.signals import worker_process_init, worker_process_shutdown
-
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph.state import CompiledStateGraph
-from app.db.session import engine
 
 from app.core.config import settings
 from app.core.context import current_pipeline_run_id
+from app.db.session import engine
 from app.graph.pipeline import compile_graph
 from app.graph.state import create_initial_state
 from app.workers.exceptions import WorkerNotInitializedError
-
 
 _loop: asyncio.AbstractEventLoop | None = None
 _saver_cm = None

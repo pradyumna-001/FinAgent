@@ -1,11 +1,11 @@
 import logging
 from datetime import datetime
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.agents.macro import macro_agent_node
-from app.graph.state import create_initial_state, DataFlag
+from app.graph.state import DataFlag, create_initial_state
 from app.services.tavily import TavilyArticle, TavilyResult
 
 

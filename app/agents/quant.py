@@ -1,11 +1,10 @@
-from datetime import datetime, UTC
 import logging
+from datetime import UTC, datetime
 
 from app.graph.state import AgentState, QuantOutput
-from app.services.yfinance import YfinanceService, YfinanceError
 from app.services.sse import sse_service
+from app.services.yfinance import YfinanceError, YfinanceService
 from app.utils.flags import DataFlag, Severity
-
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +39,8 @@ async def quant_agent_node(state: AgentState) -> dict:
     except YfinanceError as exc:
         new_flags.append(
             DataFlag(
-                source="yfinance", 
-                severity=Severity.FATAL, 
+                source="yfinance",
+                severity=Severity.FATAL,
                 message=str(exc)
             )
         )
@@ -106,8 +105,8 @@ async def quant_agent_node(state: AgentState) -> dict:
         "quant_metrics": quant_metrics,
         "data_freshness": {
             "quant": (
-                result.metrics.market_time 
-                if result.metrics.market_time is not None 
+                result.metrics.market_time
+                if result.metrics.market_time is not None
                 else datetime.now(UTC)
             )
         },

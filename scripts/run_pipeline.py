@@ -1,16 +1,18 @@
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import asyncio
 import sys
 import time
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pprint import pprint
 
-from app.graph.pipeline import compile_graph, dev_graph, create_initial_state
-
 from dotenv import load_dotenv
+
+from app.graph.pipeline import compile_graph, create_initial_state, dev_graph
+
 load_dotenv()
 
 async def main(use_postgres: bool = False):

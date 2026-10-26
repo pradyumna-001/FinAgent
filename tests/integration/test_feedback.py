@@ -1,5 +1,5 @@
-from httpx import ASGITransport, AsyncClient
 import pytest
+from httpx import ASGITransport, AsyncClient
 
 from app.core.security import create_access_token
 from app.main import app
@@ -105,7 +105,7 @@ async def test_manager_a_posts_on_manager_b_note_returns_404(bound_engine: None,
                 "comment": "Long term hold"
             }
         )
-        
+
         assert resp.status_code == 404
         assert resp.json()["code"] == "NOT_FOUND"
 

@@ -1,11 +1,19 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import BigInteger, String, DateTime, ForeignKey, Text, CheckConstraint, func, text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import JSONB
-
 from pgvector.sqlalchemy import HALFVEC
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    String,
+    Text,
+    func,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
@@ -74,8 +82,8 @@ class MorningNote(Base):
     note_text: Mapped[str] = mapped_column(Text, nullable=False)
     pipeline_run_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     status: Mapped[MorningNoteStatus] = mapped_column(
-        String(16), 
-        CheckConstraint("status IN ('pending', 'generating', 'completed', 'failed')", name="ck_morning_notes_status"), 
+        String(16),
+        CheckConstraint("status IN ('pending', 'generating', 'completed', 'failed')", name="ck_morning_notes_status"),
         nullable=False, server_default=MorningNoteStatus.PENDING.value
     )
     confidence_scores: Mapped[dict[str, float]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
@@ -118,7 +126,7 @@ class Feedback(Base):
     morning_note_id: Mapped[int] = mapped_column(ForeignKey("morning_notes.id"), nullable=False, index=True)
     manager_id: Mapped[int] = mapped_column(ForeignKey("managers.id"), nullable=False, index=True)
     action: Mapped[FeedbackAction] = mapped_column(
-        String(16), 
+        String(16),
         CheckConstraint("action IN ('buy', 'sell', 'keep')", name="ck_feedback_action"),
         nullable=False
     )

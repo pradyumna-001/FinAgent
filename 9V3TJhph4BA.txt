@@ -1,0 +1,390 @@
+0.00: I came across a Reddit post where I
+2.92: think it accurately reflects what a lot
+5.08: of CS grads are feeling as well as
+8.32: people still going through a CS degree.
+11.20: And I definitely have some thoughts on
+13.00: this. So, we're going to read it and
+15.08: then I'm going to share those.
+17.68: >> [sighs]
+18.16: >> I recently graduated in computer
+19.96: science, but AI has killed my passion
+22.48: for programming. How do I find my
+24.60: direction again?
+27.12: I graduated with a degree in computer
+28.84: science about 2 months ago. For most of
+30.52: my studies, I was genuinely passionate
+33.08: about CS and programming.
+36.00: I bet you
+37.64: this still hasn't gone away.
+40.20: Why is my mouse lagging?
+41.88: I enjoyed sitting with a difficult
+43.36: problem, understanding what was going
+45.64: wrong, debugging it, and eventually
+48.20: figuring it out myself. There was a real
+50.44: sense of satisfaction when something
+52.28: finally worked.
+55.52: You can still do this.
+57.96: This is not going away. In fact, you
+61.08: should still be doing this.
+63.80: Why as a CS grad are you
+68.12: declaring what the world of programming
+71.20: currently is?
+73.40: Well, let's keep reading.
+75.08: Over the last couple of years though, AI
+77.36: tools have slowly changed the way I feel
+79.48: about programming.
+81.28: Why?
+82.80: Instead of spending hours investigating
+84.76: a problem myself, I can give it to an AI
+87.20: and often get an answer almost
+88.84: immediately.
+90.16: Even when the AI doesn't solve it
+91.76: directly, I sometimes feel like I'm
+93.72: fighting with prompts and generated code
+95.84: rather than actual programming.
+98.20: I know these tools can make us much more
+100.24: productive, but personally, they have
+102.16: taken away some of the curiosity and
+103.84: reward I used to get from the process.
+107.16: Of course they have. You are pulling
+109.64: that dopamine slot machine lever.
+112.28: And
+113.92: of course that is going to strip the
+116.36: rewards away. Of course, that is going
+118.36: to strip the satisfaction away.
+122.49: >> [sighs]
+123.08: >> You know what the fix is?
+125.32: Stop leaning on AI so much.
+129.00: That's it. It is incredibly simple. And
+131.64: the fact that
+133.52: like junior developers just coming out
+135.44: of college feel like they have to use
+139.36: generative AI slop to build stuff for
+143.16: them when they don't even really know
+146.32: how to properly assess like a great code
+149.96: base that is going to be secure and be
+153.08: able to scale where
+156.36: you actually care about the code
+158.44: quality, you focus on reducing technical
+160.80: debt so you can add engineers to the
+162.84: team and it doesn't become a complete
+164.92: [ __ ] show.
+166.36: When you just graduate, how are you
+168.20: supposed to know that?
+169.80: And I think this is a problem with just
+171.52: spending too much time on Reddit as
+173.24: well.
+175.32: Why are so many new people basically
+179.52: deciding what the future is with how
+182.68: generative AI is going to shape that
+185.36: future? You have no idea. A lot of the
+188.40: predictions that have been made over and
+190.92: over and over that are incredibly
+192.68: optimistic about generative AI and
+195.80: integrating that into a programmer's
+197.80: workflow have been wrong over and over
+201.88: and over by people that have been in the
+205.36: industry for a while, especially by
+207.56: people that claim that they know the
+210.32: direction that AI is going and where
+212.20: it's going to be in 5 years. People are
+214.52: just wrong over and over and over. How
+218.08: many times
+220.40: do people need to be called out? Do AI
+223.88: leaders need to be called out for the
+225.96: [ __ ] predictions that they continue
+228.28: to [ __ ] up?
+230.72: How many times does that need to happen?
+233.52: So, especially new people that don't
+236.36: really know the industry, stop guessing
+238.52: what's going to happen.
+240.76: A simple fix so far
+242.84: is literally stop depending on AI,
+246.48: get back in your editor, write the code,
+249.24: and debug.
+250.84: That's it. It really is a simple
+252.92: solution, but if you go on Reddit,
+256.08: you get a bunch of doomsayers here,
+258.92: and I think the solution is maybe to
+262.40: just get off Reddit.
+265.12: But, we're going to keep going.
+267.48: At the same time, I'm currently being
+269.36: paid to work on medical AI research
+271.52: projects with one of my professors. The
+274.24: problem is that our data is extremely
+276.00: limited, and I have serious doubts that
+277.64: the project can produce a meaningful
+279.24: solution with what we currently have.
+281.80: This has put me in a strange situation
+283.72: where I'm getting paid, but I don't feel
+286.12: productive or useful. Some days, there
+289.04: simply isn't much meaningful work I can
+291.40: do, and that makes me feel even worse.
+294.00: So, you are someone that appreciates
+297.12: finding that fulfillment and actually
+299.64: enjoying your work. This is good. Again,
+302.88: please don't let Reddit take that away
+305.16: from you.
+306.84: Before choosing computer science, I also
+309.52: considered studying medicine. If I'm
+311.88: being completely truthful with myself, a
+314.32: big part of the attraction was the
+315.76: status, financial security, and clear
+318.76: career path rather than a deep
+320.72: fascination with medicine itself.
+323.84: So,
+324.92: medicine is a very long path if you are
+327.88: I don't know what you're actually trying
+329.56: Okay, medical AI research. So, you're
+331.16: not trying to become a doctor.
+332.96: Um it's probably still a very long path
+336.60: that's going to be hard to get through
+337.84: if you don't really find a lot of
+339.08: fulfillment in it. I think a lot of
+340.92: people drop off, especially with a long
+344.28: path
+345.24: when you're diving into a ton of
+346.64: education where you're going to be
+347.68: learning a lot of stuff that probably
+349.08: bores you, it really helps to be
+351.36: fulfilled in the field. And I think this
+353.80: is a thing for aspiring developers as
+355.92: well, where they think it's going to be
+357.80: a short path. They were told a year or
+359.92: two. Um and maybe that was true long
+363.48: time ago, but they thought they would
+366.80: just be able to get a job within 2 years
+368.88: and then it takes longer and longer and
+370.60: longer and they get bored, they get
+372.36: burned out, they end up quitting. And I
+374.92: think a lot of it is because they don't
+376.28: really enjoy it. And I think a lot of
+378.56: the people that do cross that finish
+380.44: line are people that are really curious
+382.84: about this stuff and they just kind of
+384.88: found what fulfills them.
+387.48: It's hard to go through a path when you
+389.32: don't really enjoy it just because it's
+391.24: going to give you status and money. A
+393.40: lot of people fail with that alone. Like
+396.80: if that's all you have.
+398.80: Now that my excitement about programming
+400.52: has decreased, I've started wondering
+402.40: whether I made the wrong decision. I
+404.36: catch myself thinking about medicine
+406.08: again and wondering what my life would
+407.60: look like if I had chosen that path.
+410.00: You've already said that you don't
+411.36: probably enjoyed the medical path. You
+413.92: find enjoyment in computer science. You
+416.16: are just
+418.04: turning your journey into what you think
+420.68: it's supposed to be when you have no
+423.00: idea. And I think you've probably
+425.28: created an echo chamber for yourself as
+427.48: have many people how AI is just taking
+431.36: over and it's just taking over
+433.08: programmers jobs and you're not supposed
+435.32: to code anymore.
+437.00: And you're definitely not supposed to
+438.40: solve problems anymore and you're just a
+440.60: prompter and you're just a code reviewer
+443.00: and that's all you are. Basically, it is
+445.72: stripped to the worst parts of software
+448.08: engineering. And you better get on board
+452.80: or get off the tracks
+455.76: because you are going to be left behind.
+460.84: I'm just assuming some thoughts that
+462.64: might have popped up in your head,
+464.36: especially if you're watching this.
+467.08: You're going to hear
+469.32: so many
+471.64: declarations like that of people that
+473.88: are overconfident
+476.08: in what the industry is based off of the
+480.24: echo chamber that they've created for
+483.28: themselves, and that is what I am
+485.28: finding.
+486.64: There are people who believe that AI is
+489.92: completely worthless, has no value
+492.76: whatsoever, and there are people who
+495.16: believe that AI is just replacing all of
+499.04: these technical positions, and how in
+501.28: the world
+502.84: is
+504.12: anyone going to find a job? Everyone's
+506.88: going to be replaced. I feel like
+509.84: what gets pushed out are the extremes.
+514.00: And
+515.56: you have to learn to curate your feed.
+518.64: You have to learn to break out of your
+521.36: echo chamber. It's okay to have a strong
+523.92: opinion either way, but I really worry
+527.88: about
+529.60: the effect this is having towards people
+532.28: who were excited to learn to code and
+535.16: become good software engineers
+537.76: by learning to code, which is what you
+540.16: need to do, especially heavily in your
+543.72: initial years.
+546.36: I'm worried that it's going to chase so
+549.20: many bright people
+551.76: who love coding away.
+556.00: I hope it doesn't.
+557.60: Cuz we're going to need people like
+558.72: that.
+560.40: I'm trying to separate a few things that
+562.48: may be getting mixed together, burnout,
+564.92: disappointment with my current research
+566.76: job, the effect AI has had on
+569.48: programming, comparison with other
+571.36: careers, and the possibility that my
+573.16: interests have genuinely changed.
+575.72: I I think they've changed.
+577.76: I really don't. I think the parts that
+580.04: you love about it, you need to spend
+581.36: more time with.
+582.72: For people who have gone through
+583.84: something similar, how did you figure
+585.68: out whether you had actually lost
+587.04: interest in your field or were simply
+589.32: burned out? Have you experienced
+591.52: developers or how have experienced
+593.92: developers kept programming
+595.40: intellectually rewarding in the age of
+597.56: AI?
+600.00: I hate that term.
+601.30: >> [sighs and gasps]
+602.56: >> There's always some truth in saying that
+606.24: AI is inevitable. It's not going
+609.12: anywhere.
+611.12: This is true.
+613.04: AI is here to stay
+615.44: in some capacity.
+617.76: And
+619.44: that middle not middle ground, but that
+621.92: nuance in some capacity,
+625.36: everyone has a prediction.
+628.68: No one actually knows.
+631.40: What I would encourage you to do is
+633.88: follow the money.
+636.60: And challenge whether
+640.16: this fraud of an AI industry
+642.84: will be able to maintain its momentum
+645.60: long-term
+647.12: or is it going to crash and burn?
+650.80: Look into the circular financing.
+653.76: Look into how much
+656.56: these tokens actually cost companies.
+661.48: Just
+662.92: follow the money.
+664.92: That is one of the most honest and
+670.68: best ways to create an accurate
+673.16: prediction of what is going to happen.
+676.12: History tends to repeat itself. It looks
+678.28: a little bit different,
+679.84: but generally, when everything feels so
+683.12: up in the air and abstract and people
+686.32: are contradicting each other all the
+688.20: time and they're so sure of each other
+689.84: and your favorite content creators just
+691.36: know exactly what's going to happen.
+694.72: Ground yourself in data, and the data
+697.48: that I like to follow, because the world
+699.60: is run on it, is money.
+703.96: And more generally, how do you find your
+705.96: direction again when something you were
+707.80: passionate about suddenly doesn't give
+709.72: you the same satisfaction anymore?
+713.72: Chances are this person is probably
+716.04: still
+717.72: maybe not passionate, and I I think you
+719.88: need to
+721.28: be careful about using that term. Like,
+723.16: you need to be passionate about this.
+725.40: You were probably really excited in the
+727.28: beginning, but you did make it through a
+729.20: full CS degree, so you probably really
+732.16: enjoy this thing.
+733.80: It's just what you think it is
+736.76: is very distorted right now,
+739.08: and what you enjoy out of it is what so
+742.04: many good software engineers enjoy out
+744.68: of it as well,
+746.20: even in the age of AI.
+752.76: I'm not necessarily looking for someone
+754.40: to tell me whether to stay in CS or
+756.24: change careers. I'd appreciate
+758.00: perspectives from people who have gone
+759.72: through a similar period and eventually
+761.56: figured out what they actually wanted.
+765.88: I am just going to say this,
+768.28: and
+770.32: if you follow this advice, you stand a
+773.48: much higher chance of breaking into the
+775.44: industry.
+777.16: If you haven't even had your first
+779.36: software engineering job,
+781.44: you should barely be touching AI to
+784.76: write your code and debug.
+787.48: I think you need to be careful about
+789.08: using it for learning, and I find that
+792.28: curated resources from people who
+794.56: actually have gone through that thing
+796.36: and know what they're talking about is
+798.12: going to be more effective.
+799.56: Hallucinations are just
+802.28: crazy.
+803.80: They
+805.32: mislead so many new developers. But if
+808.68: you are graduating a CS degree, if you
+810.68: are a junior developer under
+812.92: you know, just
+814.64: a couple years,
+816.76: you heavily should be pushing AI to the
+820.32: side,
+821.56: taking the time to learn on your own and
+825.20: struggle. You need to desperately
+829.60: struggle. That is what helps you
+832.84: reinforce things. That is what helps you
+835.28: build a deeper understanding of what
+837.88: you're learning. Generative AI
+841.40: has given people a false sense of
+843.16: confidence.
+844.60: It's very similar to
+847.44: reading kind of like a Stack Overflow
+849.40: function and thinking, "Oh, I know what
+852.04: this is doing."
+853.56: And then when you're actually tested to
+855.84: implement this yourself in maybe a month
+858.40: or two, you blank.
+860.80: This is what's happening when you create
+862.52: this quick, easy answer. You create this
+865.84: dependency on AI to be able to solve
+868.08: something for you very quickly. It
+870.28: doesn't get reinforced. You're not
+872.16: learning it like you think you are. And
+874.68: this goes to a lot of professional
+877.84: software engineers as well.
+880.28: If you are reading the code and you
+882.12: understand what's going on, you are
+884.64: lying to yourself if you think you truly
+887.52: understand that code base in a month.
+890.08: You don't.
+891.52: Writing code truly helps you understand
+894.52: your code base, remember all of the
+896.64: nuances. Debugging
+899.44: yourself, not yourself, but debugging
+902.48: the app yourself, and like really just
+907.68: grinding it out and tracing through your
+911.64: application and just testing a bunch of
+913.48: stuff, that's what helps you remember
+917.12: those edge cases that will bite you in
+919.16: the ass down the road.
+922.60: Please,
+924.40: put down the AI,
+926.48: write some code,
+928.00: debug. Not only will that make you a
+930.20: better software engineer,
+932.28: but you will actually remember why you
+936.00: used to love it in the first place.

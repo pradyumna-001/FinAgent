@@ -1,6 +1,5 @@
 from app.utils.flags import DataFlag
 
-
 SECTION_SOURCE_MAP: dict[str, list[str]] = {
     "macro": ["tavily"],
     "company": ["tavily"],
@@ -30,4 +29,3 @@ def apply_confidence_penalties(
     section_scores = [updated_scores.get(s, 1.0) for s in ("macro", "company", "quant", "risk")]
     updated_scores["overall"] = sum(section_scores) / len(section_scores) if section_scores else 0.0
     return updated_scores, warnings
-    

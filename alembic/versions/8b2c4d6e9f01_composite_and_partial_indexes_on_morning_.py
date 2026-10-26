@@ -5,8 +5,10 @@ Revises: 7a1b3c9d2e4f
 Create Date: 2026-07-28 19:00:00.000000
 """
 from typing import Sequence, Union
-from alembic import op
+
 import sqlalchemy as sa
+
+from alembic import op
 
 revision: str = "8b2c4d6e9f01"
 down_revision: Union[str, Sequence[str], None] = "7a1b3c9d2e4f"
@@ -31,4 +33,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("idx_morning_notes_completed_at", table_name="morning_notes")
     op.drop_index("ix_morning_notes_manager_company_date", table_name="morning_notes")
-    

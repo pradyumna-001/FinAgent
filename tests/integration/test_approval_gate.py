@@ -1,14 +1,15 @@
 import json
-from unittest.mock import patch, MagicMock, AsyncMock
-from langgraph.types import Command
-import pytest
-import asyncpg
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.graph.pipeline import compile_graph
-from app.graph.state import create_initial_state, InvalidStateError
+import asyncpg
+import pytest
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.types import Command
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
 import app.db.session as db_session
+from app.graph.pipeline import compile_graph
+from app.graph.state import InvalidStateError, create_initial_state
 
 EDITOR_JSON = json.dumps({
     "morning_note": "Morning note candidate text.",
@@ -40,8 +41,9 @@ def _tavily_ok():
 
 
 def _quant_ok():
+    from datetime import UTC, datetime
+
     from app.services.yfinance import QuoteMetrics, YfinanceResult
-    from datetime import datetime, UTC
     return YfinanceResult(
         metrics=QuoteMetrics(
             pl=8.0, ev_ebitda=6.5, p_vpa=1.2,
@@ -258,7 +260,9 @@ async def test_resume_persists_decision(approval_gate_graph, migrated_db_url):
 
 async def test_replay_is_exactly_once(approval_gate_graph, migrated_db_url):
     import uuid
+
     from redis.asyncio import Redis
+
     from app.services.decisions import handle_decision
 
     thread_id = str(uuid.uuid4())

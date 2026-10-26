@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import httpx
 from dataclasses import dataclass
+
+import httpx
 
 from app.core.config import settings
 from app.utils.flags import DataFlag, Severity
@@ -92,4 +93,3 @@ class TavilyService:
             )
 
         return TavilyResult(articles=articles, error=None)
-    

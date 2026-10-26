@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import asyncio
 import os
 import subprocess
@@ -40,6 +41,7 @@ os.environ.setdefault("LANGCHAIN_API_KEY", "")
 os.environ.setdefault("LANGCHAIN_TRACING_V2", "false")
 
 import app.db.session as db_session
+
 
 @pytest.fixture(scope="session")
 def pg_container() -> Generator[PostgresContainer, None, None]:
@@ -177,4 +179,4 @@ def bound_engine(migrated_db_url: str) -> Iterator[None]:
     db_session.engine = engine
     db_session.SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
     yield
-    engine.sync_engine.dispose() 
+    engine.sync_engine.dispose()

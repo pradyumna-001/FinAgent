@@ -7,9 +7,9 @@ Create Date: 2026-08-25 17:34:35.139196
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = '6f6d0b6496b7'
 down_revision: Union[str, Sequence[str], None] = '7a59dd209592'
@@ -25,4 +25,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     op.drop_column("managers", sa.Column("password_hash"))
-    
+

@@ -1,16 +1,16 @@
-from langgraph.graph import StateGraph, START, END
-from langgraph.graph.state import CompiledStateGraph
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
-from app.graph.state import AgentState, InvalidStateError, create_initial_state
-from app.agents.macro import macro_agent_node
+from app.agents.approval_gate import approval_gate_node
 from app.agents.company import company_agent_node
+from app.agents.editor import editor_agent_node
+from app.agents.macro import macro_agent_node
+from app.agents.persist import persist_recommendation_node
 from app.agents.quant import quant_agent_node
 from app.agents.risk import risk_agent_node
-from app.agents.editor import editor_agent_node
-from app.agents.persist import persist_recommendation_node
 from app.agents.send import send_note_node
-from app.agents.approval_gate import approval_gate_node
+from app.graph.state import AgentState, InvalidStateError, create_initial_state
 
 
 def validated_node(node_fn, name: str):

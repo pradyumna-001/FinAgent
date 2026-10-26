@@ -1,19 +1,18 @@
-from datetime import datetime, UTC
 import logging
+from datetime import UTC, datetime
 
+from app.graph.state import AgentState
 from app.prompts.risk import RISK_PROMPTS
 from app.services.llm import summarize
-from app.graph.state import AgentState
-from app.utils.risk_parse import parse_risk_json
 from app.services.sse import sse_service
 from app.utils.flags import DataFlag, Severity
-
+from app.utils.risk_parse import parse_risk_json
 
 logger = logging.getLogger(__name__)
 
 
 async def risk_agent_node(state: AgentState) -> dict:
-    """Read upstream agent products, call the LLM for adversarial risk analysis, and stage 
+    """Read upstream agent products, call the LLM for adversarial risk analysis, and stage
     the raw response for parsing. Failures append a DataFlag and return with risk_flags=[] - never raises.
     """
     logger.info(

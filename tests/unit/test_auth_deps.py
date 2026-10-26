@@ -1,17 +1,16 @@
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from jose import jwt
 
 from app.api.errors import InvalidTokenError
-
+from app.core.config import settings
 from app.core.security import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    ALGORITHM,
     create_access_token,
     decode_access_token,
-    ALGORITHM,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
 )
-from app.core.config import settings
 
 
 def test_create_access_token_returns_string() -> None:
@@ -29,7 +28,7 @@ def test_create_access_token_includes_exp_claim() -> None:
 
     assert "exp" in payload
     assert isinstance(payload["exp"], int)
-    
+
 
 def test_create_access_token_custom_expires_delta() -> None:
     """Custom expires_delta overrides default ACCESS_TOKEN_EXPIRE_MINUTES."""
@@ -39,7 +38,7 @@ def test_create_access_token_custom_expires_delta() -> None:
     now = datetime.now(UTC)
     expected_exp = now + timedelta(minutes=5)
     assert abs(payload["exp"] - expected_exp.timestamp()) < 10
-     
+
 
 def test_decode_access_token_valid_returns_payload() -> None:
     """Valid token decoded successfully, returns payload dict."""
@@ -67,12 +66,12 @@ def test_decode_access_token_invalid_signature_raises() -> None:
 
     with pytest.raises(InvalidTokenError):
         decode_access_token(token)
-    
+
 
 def test_decode_access_token_malformed_raises() -> None:
     """Malformed token string (not a valid JWT) raises JWTError."""
     with pytest.raises(InvalidTokenError):
-        decode_access_token("not.a.valid.token")    
+        decode_access_token("not.a.valid.token")
 
 
 def test_algorithm_constant_is_hs256() -> None:

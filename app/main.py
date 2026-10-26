@@ -1,20 +1,13 @@
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Response, Request, status
+from fastapi import FastAPI, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.db.session import engine
-from app.middleware.correlation import CorrelationMiddleware
-from app.api.routes.auth import router as auth_router
-from app.api.routes.morning_notes import router as morning_notes_router
-from app.api.routes.feedback import router as feedback_router
-from app.api.routes.pipeline import router as pipeline_router
 from app.api.errors import (
     ApiError,
     ErrorCodes,
@@ -23,7 +16,13 @@ from app.api.errors import (
     json_response_from_api_error,
     translate,
 )
+from app.api.routes.auth import router as auth_router
+from app.api.routes.feedback import router as feedback_router
+from app.api.routes.morning_notes import router as morning_notes_router
+from app.api.routes.pipeline import router as pipeline_router
 from app.core.config import settings
+from app.db.session import engine
+from app.middleware.correlation import CorrelationMiddleware
 
 
 @asynccontextmanager

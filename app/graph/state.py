@@ -1,6 +1,6 @@
 from datetime import datetime
 from operator import add
-from typing import TypedDict, Literal, Annotated
+from typing import Annotated, Literal, TypedDict
 
 from app.utils.flags import DataFlag, Severity
 

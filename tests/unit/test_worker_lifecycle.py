@@ -1,13 +1,12 @@
 import asyncio
 import uuid
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-from app.workers.exceptions import WorkerNotInitializedError
-import app.workers.pipeline as wp
-
-from unittest.mock import AsyncMock, MagicMock, patch
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+import app.workers.pipeline as wp
+from app.workers.exceptions import WorkerNotInitializedError
 
 
 class FakeSaverCM:
@@ -17,7 +16,7 @@ class FakeSaverCM:
 
     async def __aenter__(self):
         return self._saver
-    
+
     async def __aexit__(self, *args):
         self.exited = True
 

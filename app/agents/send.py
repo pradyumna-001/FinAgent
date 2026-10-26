@@ -1,12 +1,11 @@
 import logging
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 from app.graph.state import AgentState
 from app.services.channels.base import NotePayload
-from app.services.sse import sse_service
 from app.services.channels.factory import build_telegram_channel
+from app.services.sse import sse_service
 from app.utils.flags import DataFlag, Severity
-
 
 logger = logging.getLogger(__name__)
 

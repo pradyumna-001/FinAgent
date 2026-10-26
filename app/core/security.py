@@ -1,9 +1,9 @@
-from datetime import datetime, timedelta, UTC
-from jose import jwt, JWTError
+from datetime import UTC, datetime, timedelta
+
+from jose import JWTError, jwt
+
 from app.api.errors import InvalidTokenError
-
 from app.core.config import settings
-
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -22,4 +22,3 @@ def decode_access_token(token: str) -> dict:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError as e:
         raise InvalidTokenError("Invalid or expired token") from e
-    

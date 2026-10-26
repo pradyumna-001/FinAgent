@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 from app.agents.approval_gate import approval_gate_node
 from app.graph.state import create_initial_state
@@ -40,9 +41,6 @@ async def test_approval_gate_node_invalid_decision() -> None:
         "confidence": 0.9,
         "justification": "Strong fundamentals"
     }
-
-    def mock_interrupt(data):
-        return "invalid_decision"
 
     with patch("app.agents.approval_gate.interrupt") as mock_interrupt:
         mock_interrupt.return_value = "invalid_decision"
@@ -85,7 +83,7 @@ async def test_approval_gate_node_valid_decision() -> None:
         patch("app.agents.approval_gate.session_write_decision") as mock_write:
 
         mock_interrupt.return_value = "approved"
-        mock_write.return_value = None 
+        mock_write.return_value = None
         result = await approval_gate_node(state)
 
         mock_interrupt.assert_called_once()
@@ -99,6 +97,6 @@ async def test_approval_gate_node_valid_decision() -> None:
         assert result["manager_decision"] == "approved"
         assert result["decision_channel"] == "telegram"
         assert "flags" in result
-        assert len(result["flags"]) == 0 
+        assert len(result["flags"]) == 0
         assert "data_freshness" in result
         assert "approval_gate" in result["data_freshness"]

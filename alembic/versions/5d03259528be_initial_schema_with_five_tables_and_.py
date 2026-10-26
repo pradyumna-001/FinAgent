@@ -7,12 +7,11 @@ Create Date: 2026-07-27 19:04:47.722958
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 
+from alembic import op
 from app.db.models import MorningNoteStatus
-
 
 # revision identifiers, used by Alembic.
 revision: str = "5d03259528be"

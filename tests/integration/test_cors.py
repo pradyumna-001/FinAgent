@@ -56,4 +56,3 @@ async def test_preflight_returns_allowed_headers() -> None:
         )
     assert resp.status_code == 200
     assert resp.headers.get("access-control-allow-origin") == "http://localhost:5173"
-    

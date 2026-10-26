@@ -7,9 +7,9 @@ Create Date: 2026-09-16 16:30:53.714239200
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = '1789584853'
 down_revision: Union[str, Sequence[str], None] = 'add_hnsw_reindex_state'

@@ -1,7 +1,6 @@
 from app.utils.editor_confidence import apply_confidence_penalties
 from app.utils.flags import DataFlag, Severity
 
-
 _SCORES = {
         "macro": 0.8,
         "company": 0.7,
@@ -16,7 +15,7 @@ def test_apply_confidence_no_flags() -> None:
     assert all(_SCORES[score] == result[score] for score in _SCORES)
     assert result["overall"] == 0.75
     assert warnings == []
-    
+
 
 def test_apply_confidence_tavily_flag_penalizes_macro_and_company() -> None:
     flags = [

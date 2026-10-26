@@ -15,9 +15,9 @@ class AuthService:
         manager = result.scalar_one_or_none()
 
         if (
-            manager and manager.password_hash and 
+            manager and manager.password_hash and
             verify_password(password, manager.password_hash)
-        ): 
+        ):
             return manager
         return None
 
