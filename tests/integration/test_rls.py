@@ -21,6 +21,7 @@ async def _count_visible(conn: asyncpg.Connection) -> int:
     return await conn.fetchval("SELECT count(*) FROM morning_notes")
 
 
+@pytest.mark.serial
 async def test_rls_filters_by_manager_id(finagent_app_role: str) -> None:
     conn = await _connect_as_role(finagent_app_role)
     try:
@@ -41,6 +42,7 @@ async def test_rls_filters_by_manager_id(finagent_app_role: str) -> None:
         await conn.close()
 
 
+@pytest.mark.serial
 async def test_rls_managers_world_readable(finagent_app_role: str) -> None:
     conn = await _connect_as_role(finagent_app_role)
     try:
@@ -54,6 +56,7 @@ async def test_rls_managers_world_readable(finagent_app_role: str) -> None:
         await conn.close()
 
 
+@pytest.mark.serial
 async def test_rls_companies_world_readable(finagent_app_role: str) -> None:
     conn = await _connect_as_role(finagent_app_role)
     try:
@@ -65,6 +68,7 @@ async def test_rls_companies_world_readable(finagent_app_role: str) -> None:
         await conn.close()
 
 
+@pytest.mark.serial
 async def test_rls_portfolios_isolated(finagent_app_role: str) -> None:
     conn = await _connect_as_role(finagent_app_role)
     try:
@@ -76,6 +80,7 @@ async def test_rls_portfolios_isolated(finagent_app_role: str) -> None:
         await conn.close()
 
 
+@pytest.mark.serial
 async def test_rls_portfolio_holdings_isolated(finagent_app_role: str) -> None:
     conn = await _connect_as_role(finagent_app_role)
     try:
@@ -87,6 +92,7 @@ async def test_rls_portfolio_holdings_isolated(finagent_app_role: str) -> None:
         await conn.close()
 
 
+@pytest.mark.serial
 async def test_rls_recommendations_isolated(finagent_app_role: str) -> None:
     conn = await _connect_as_role(finagent_app_role)
     try:
@@ -98,6 +104,7 @@ async def test_rls_recommendations_isolated(finagent_app_role: str) -> None:
         await conn.close()
 
 
+@pytest.mark.serial
 async def test_rls_recommendations_insert_cross_tenant_rejected(finagent_app_role: str) -> None:
     conn = await _connect_as_role(finagent_app_role)
     try:

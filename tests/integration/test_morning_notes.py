@@ -10,6 +10,7 @@ def _make_token(manager_id: int) -> str:
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_list_morning_notes_missing_header_returns_401() -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -18,6 +19,7 @@ async def test_list_morning_notes_missing_header_returns_401() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_list_morning_notes_with_header_returns_list(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -28,6 +30,7 @@ async def test_list_morning_notes_with_header_returns_list(bound_engine: None, f
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_read_morning_notes_with_header_returns_all_fields(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -67,6 +70,7 @@ async def test_read_morning_notes_with_header_returns_all_fields(bound_engine: N
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_read_morning_note_missing_header_returns_401(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -80,6 +84,7 @@ async def test_read_morning_note_missing_header_returns_401(bound_engine: None, 
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_read_morning_notes_rls_isolation_returns_404(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -97,6 +102,7 @@ async def test_read_morning_notes_rls_isolation_returns_404(bound_engine: None, 
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_read_morning_notes_nonexistent_note_returns_404(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

@@ -57,6 +57,7 @@ def mock_pool(mock_conn):
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_get_hnsw_indexes(mock_pool):
     mock_pool._conn.fetch.return_value = [
         {"index_name": "idx_test_hnsw", "table_name": "test_table", "index_size_bytes": 1024, "index_size_pretty": "1 kB"},
@@ -70,6 +71,7 @@ async def test_get_hnsw_indexes(mock_pool):
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_get_index_stats(mock_pool):
     mock_pool._conn.fetchrow.side_effect = [
         {"idx_scan": 5000, "idx_tup_read": 100000, "idx_tup_fetch": 50000},
@@ -85,6 +87,7 @@ async def test_get_index_stats(mock_pool):
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_get_index_stats_not_found(mock_pool):
     mock_pool._conn.fetchrow.return_value = None
 
@@ -94,6 +97,7 @@ async def test_get_index_stats_not_found(mock_pool):
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_get_reindex_state(mock_pool):
     mock_pool._conn.fetchrow.return_value = {
         "index_name": "idx_test_hnsw",
@@ -108,6 +112,7 @@ async def test_get_reindex_state(mock_pool):
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_get_reindex_state_not_found(mock_pool):
     mock_pool._conn.fetchrow.return_value = None
 
@@ -117,6 +122,7 @@ async def test_get_reindex_state_not_found(mock_pool):
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_upsert_reindex_state(mock_pool):
     await upsert_reindex_state(mock_pool, "idx_test", DEFAULT_CONFIG, last_reindex_status="success")
 
@@ -182,6 +188,7 @@ def test_check_drift_triggers_reindex():
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_reindex_index_dry_run(mock_pool):
     success, msg, duration, rows = await reindex_index(mock_pool, "idx_test", dry_run=True)
 
@@ -193,6 +200,7 @@ async def test_reindex_index_dry_run(mock_pool):
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_reindex_index_success(mock_pool):
     # reindex_index calls get_index_stats twice (before and after)
     # Each get_index_stats calls fetchrow twice (pg_stat_user_indexes + pg_class)
@@ -219,6 +227,7 @@ async def test_reindex_index_success(mock_pool):
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_reindex_index_failure(mock_pool):
     mock_pool._conn.execute.side_effect = Exception("Lock timeout")
     # Mock get_index_stats call (called once before exception)
@@ -236,6 +245,7 @@ async def test_reindex_index_failure(mock_pool):
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_run_reindex_list_all(mock_pool):
     mock_pool._conn.fetch.return_value = [
         {"index_name": "idx_a", "table_name": "table_a", "index_size_bytes": 1024, "index_size_pretty": "1 kB"},
@@ -266,6 +276,7 @@ async def test_run_reindex_list_all(mock_pool):
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_run_reindex_specific_index(mock_pool):
     mock_pool._conn.fetch.return_value = [
         {"index_name": "idx_target", "table_name": "table_a", "index_size_bytes": 1024, "index_size_pretty": "1 kB"},
@@ -304,6 +315,7 @@ async def test_run_reindex_specific_index(mock_pool):
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_run_reindex_force_flag(mock_pool):
     mock_pool._conn.fetch.return_value = [
         {"index_name": "idx_test", "table_name": "table_a", "index_size_bytes": 1024, "index_size_pretty": "1 kB"},
@@ -342,6 +354,7 @@ async def test_run_reindex_force_flag(mock_pool):
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_run_reindex_dry_run(mock_pool):
     mock_pool._conn.fetch.return_value = [
         {"index_name": "idx_test", "table_name": "table_a", "index_size_bytes": 1024, "index_size_pretty": "1 kB"},
@@ -373,6 +386,7 @@ async def test_run_reindex_dry_run(mock_pool):
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_run_reindex_skips_low_activity(mock_pool):
     """Test that indexes with low activity are skipped."""
     mock_pool._conn.fetch.return_value = [

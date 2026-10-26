@@ -8,6 +8,7 @@ def test_migrations_apply(migrated_db_url: str) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_initial_schema_creates_six_tables(migrated_db_url: str) -> None:
     n = await fetch_scalar(
         migrated_db_url,
@@ -19,6 +20,7 @@ async def test_initial_schema_creates_six_tables(migrated_db_url: str) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_pgvector_and_embedding_column(migrated_db_url: str) -> None:
     ext = await fetch_scalar(
         migrated_db_url,
@@ -36,6 +38,7 @@ async def test_pgvector_and_embedding_column(migrated_db_url: str) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_indexes_on_morning_notes(migrated_db_url: str) -> None:
     composite = await fetch_scalar(
         migrated_db_url,

@@ -10,6 +10,7 @@ def _make_token(manager_id: int) -> str:
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_trigger_returns_202_with_ids(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -30,6 +31,7 @@ async def test_trigger_returns_202_with_ids(bound_engine: None, finagent_app_rol
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_trigger_missing_header_header_returns_401(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -45,6 +47,7 @@ async def test_trigger_missing_header_header_returns_401(bound_engine: None, fin
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_stream_unknown_note_returns_404(bound_engine: None, finagent_app_role: None) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

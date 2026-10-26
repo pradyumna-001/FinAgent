@@ -24,6 +24,7 @@ async def _connect_as_admin(migrated_db_url: str) -> asyncpg.Connection:
     return await asyncpg.connect(admin_url)
 
 
+@pytest.mark.serial
 async def test_finagent_app_cannot_drop_table(finagent_app_role: str, migrated_db_url: str) -> None:
     """finagent_app must not be able to DROP tables."""
     conn = await _connect_as_finagent_app(finagent_app_role)
@@ -34,6 +35,7 @@ async def test_finagent_app_cannot_drop_table(finagent_app_role: str, migrated_d
         await conn.close()
 
 
+@pytest.mark.serial
 async def test_finagent_app_cannot_create_table(finagent_app_role: str, migrated_db_url: str) -> None:
     """finagent_app must not be able to CREATE tables in public schema."""
     conn = await _connect_as_finagent_app(finagent_app_role)
@@ -44,6 +46,7 @@ async def test_finagent_app_cannot_create_table(finagent_app_role: str, migrated
         await conn.close()
 
 
+@pytest.mark.serial
 async def test_finagent_app_cannot_create_schema(finagent_app_role: str, migrated_db_url: str) -> None:
     """finagent_app must not be able to CREATE schemas."""
     conn = await _connect_as_finagent_app(finagent_app_role)
@@ -54,6 +57,7 @@ async def test_finagent_app_cannot_create_schema(finagent_app_role: str, migrate
         await conn.close()
 
 
+@pytest.mark.serial
 async def test_finagent_app_cannot_grant_revoke(finagent_app_role: str, migrated_db_url: str) -> None:
     """finagent_app must not be able to effectively GRANT or REVOKE privileges.
 
@@ -99,6 +103,7 @@ async def test_finagent_app_cannot_grant_revoke(finagent_app_role: str, migrated
         await admin_conn.close()
 
 
+@pytest.mark.serial
 async def test_finagent_app_cannot_alter_table(finagent_app_role: str, migrated_db_url: str) -> None:
     """finagent_app must not be able to ALTER tables (DDL)."""
     conn = await _connect_as_finagent_app(finagent_app_role)
@@ -109,6 +114,7 @@ async def test_finagent_app_cannot_alter_table(finagent_app_role: str, migrated_
         await conn.close()
 
 
+@pytest.mark.serial
 async def test_finagent_app_can_select_insert_update_delete(finagent_app_role: str, migrated_db_url: str) -> None:
     """finagent_app MUST be able to perform DML on application tables."""
     conn = await _connect_as_finagent_app(finagent_app_role)
@@ -142,6 +148,7 @@ async def test_finagent_app_can_select_insert_update_delete(finagent_app_role: s
         await conn.close()
 
 
+@pytest.mark.serial
 async def test_finagent_app_can_update_recommendation_decision_columns(
     finagent_app_role: str,
     migrated_db_url: str,
@@ -243,6 +250,7 @@ async def test_finagent_app_can_update_recommendation_decision_columns(
         await admin_conn.close()
 
 
+@pytest.mark.serial
 async def test_finagent_app_grant_list_matches_expectation(finagent_app_role: str, migrated_db_url: str) -> None:
     """Verify finagent_app has exactly the expected grants (smoke probe)."""
     admin_conn = await _connect_as_admin(migrated_db_url)

@@ -41,6 +41,9 @@ pythonpath = [
     "."
 ]
 asyncio_mode = "auto"
+markers = [
+    "serial: marks tests as serial (cannot run in parallel, for DB tests with SET LOCAL contention)",
+]
 
 [tool.mypy]
 plugins = ["sqlalchemy.ext.mypy.plugin"]

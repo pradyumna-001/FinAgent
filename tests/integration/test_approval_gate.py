@@ -77,6 +77,7 @@ async def approval_gate_graph(migrated_db_url):
     await _saver_cm.__aexit__(None, None, None)
 
 
+@pytest.mark.serial
 async def test_run_to_interrupt_parks_and_persists(approval_gate_graph, migrated_db_url):
     import uuid
 
@@ -165,6 +166,7 @@ async def test_run_to_interrupt_parks_and_persists(approval_gate_graph, migrated
         await conn.close()
 
 
+@pytest.mark.serial
 async def test_resume_persists_decision(approval_gate_graph, migrated_db_url):
     import uuid
 
@@ -258,6 +260,7 @@ async def test_resume_persists_decision(approval_gate_graph, migrated_db_url):
         await conn.close()
 
 
+@pytest.mark.serial
 async def test_replay_is_exactly_once(approval_gate_graph, migrated_db_url):
     import uuid
 
@@ -351,6 +354,7 @@ async def test_replay_is_exactly_once(approval_gate_graph, migrated_db_url):
         await redis.aclose()
 
 
+@pytest.mark.serial
 async def test_ghost_resume(approval_gate_graph, migrated_db_url):
     import uuid
 
@@ -437,6 +441,7 @@ async def test_ghost_resume(approval_gate_graph, migrated_db_url):
 
 
 @pytest.mark.xfail(reason="Windows/Docker connection timeout on long-running test (infrastructure issue)")
+@pytest.mark.serial
 async def test_finalize_sets_completed_on_approval(approval_gate_graph, migrated_db_url):
     """After approval, MorningNote.status should be 'completed'."""
     import uuid
@@ -526,6 +531,7 @@ async def test_finalize_sets_completed_on_approval(approval_gate_graph, migrated
         await conn.close()
 
 
+@pytest.mark.serial
 async def test_finalize_keeps_pending_on_rejection(approval_gate_graph, migrated_db_url):
     """After rejection, MorningNote.status should remain 'pending'."""
     import uuid
