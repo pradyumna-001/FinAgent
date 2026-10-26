@@ -21,6 +21,7 @@ def make_state():
 
 
 @pytest.mark.asyncio
+@pytest.mark.serial
 async def test_pipeline_all_agents_fail_shares_state():
     """Sequential A1: macro -> company -> quant, all mocked to fail,
     against one shared AgentState. Flags accumulate; freshness keys

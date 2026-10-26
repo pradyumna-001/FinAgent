@@ -114,8 +114,7 @@ async def read_morning_note(
                 "action": note.recommendation.action,
                 "confidence": note.recommendation.confidence,
                 "justification": note.recommendation.justification,
-                "created_at": note.recommendation.created_at,
-                "confirmed_at": note.recommendation.confirmed_at
+                "created_at": note.recommendation.created_at
             } if note.recommendation else None,
 
             "manager_name": note.manager.name,

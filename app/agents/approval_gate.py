@@ -87,6 +87,11 @@ async def session_write_decision(state: AgentState, recommendation_id: int, deci
             await session.execute(
                 text(f"SET LOCAL app.manager_id = {int(state['manager_id'])}")
             )
+            # Lock the row to prevent concurrent approvals (NOWAIT fails fast if locked)
+            await session.execute(
+                text("SELECT 1 FROM recommendations WHERE id = :rec_id FOR UPDATE NOWAIT"),
+                {"rec_id": recommendation_id},
+            )
             await session.execute(
                 text(
                     "UPDATE recommendations "
