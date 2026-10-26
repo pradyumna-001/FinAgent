@@ -12,20 +12,24 @@ import json  # noqa: E402
 from datetime import UTC, datetime  # noqa: E402
 
 import pytest  # noqa: E402
+from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
+from langgraph.graph import END, START, StateGraph  # noqa: E402
 
-from app.graph.state import AgentState, InvalidStateError, create_initial_state  # noqa: E402
-from app.services.sse import sse_service  # noqa: E402
-from app.services.tavily import TavilyArticle, TavilyResult  # noqa: E402
-from app.services.yfinance import QuoteMetrics, YfinanceResult  # noqa: E402
+from app.agents.approval_gate import approval_gate_node  # noqa: E402
 from app.agents.company import company_agent_node  # noqa: E402
 from app.agents.editor import editor_agent_node  # noqa: E402
 from app.agents.macro import macro_agent_node  # noqa: E402
 from app.agents.quant import quant_agent_node  # noqa: E402
 from app.agents.risk import risk_agent_node  # noqa: E402
 from app.agents.send import send_note_node  # noqa: E402
-from app.agents.approval_gate import approval_gate_node  # noqa: E402
-from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
-from langgraph.graph import END, START, StateGraph  # noqa: E402
+from app.graph.state import (  # noqa: E402
+    AgentState,
+    InvalidStateError,
+    create_initial_state,
+)
+from app.services.sse import sse_service  # noqa: E402
+from app.services.tavily import TavilyArticle, TavilyResult  # noqa: E402
+from app.services.yfinance import QuoteMetrics, YfinanceResult  # noqa: E402
 
 
 def _tavily_ok():

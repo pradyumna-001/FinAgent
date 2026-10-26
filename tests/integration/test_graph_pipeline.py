@@ -112,14 +112,15 @@ def test_graph(dev_graph, patched_services):
     """Create a test graph with persist_recommendation_node mocked to avoid DB."""
     from langgraph.checkpoint.memory import InMemorySaver
     from langgraph.graph import END, START, StateGraph
-    from app.graph.state import AgentState, InvalidStateError
+
+    from app.agents.approval_gate import approval_gate_node
     from app.agents.company import company_agent_node
     from app.agents.editor import editor_agent_node
     from app.agents.macro import macro_agent_node
     from app.agents.quant import quant_agent_node
     from app.agents.risk import risk_agent_node
     from app.agents.send import send_note_node
-    from app.agents.approval_gate import approval_gate_node
+    from app.graph.state import AgentState, InvalidStateError
 
     def validated_node(node_fn, name: str):
         async def wrapper(state: AgentState) -> AgentState:
