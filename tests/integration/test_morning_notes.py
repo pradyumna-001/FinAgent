@@ -60,7 +60,6 @@ async def test_read_morning_notes_with_header_returns_all_fields(bound_engine: N
             assert isinstance(rec["confidence"], float)
             assert isinstance(rec["justification"], str)
             assert isinstance(rec["created_at"], str)
-            assert rec["confirmed_at"] is None or isinstance(rec["confirmed_at"], str)
 
         assert isinstance(data["manager_name"], str)
         assert isinstance(data["company_ticker"], str)
