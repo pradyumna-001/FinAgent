@@ -7,7 +7,7 @@ import pytest
 
 
 def test_encode_decode_round_trip():
-    from app.services.channels.telegram_channel import decode_callback, encode_callback
+    from app.services.channels.telegram_channel import encode_callback, decode_callback
     c = encode_callback("approve", "run-42", 7)
     assert decode_callback(c) == ("approve", "run-42", 7)
     assert decode_callback("malformed") is None
