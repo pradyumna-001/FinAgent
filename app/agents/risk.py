@@ -33,10 +33,27 @@ async def risk_agent_node(state: AgentState) -> dict:
         }
     )
 
+    tickers = state.get("company_tickers", [])
+    if not tickers:
+        new_flags = [
+            DataFlag(
+                source="risk",
+                severity=Severity.FATAL,
+                message="No company_tickers in state"
+            )
+        ]
+        return {
+            "risk_flags": {},
+            "data_freshness": {"risk": datetime.now(UTC)},
+            "flags": new_flags
+        }
+
+    ticker = tickers[0]
+
     user_prompt = RISK_PROMPTS.build_user_prompt(
-        macro_context=state.get("macro_context"),
-        company_events=state.get("company_events", []),
-        quant_metrics=state.get("quant_metrics"),
+        macro_context=state.get("macro_context", {}).get("global"),
+        company_events=state.get("company_events", {}).get(ticker, []),
+        quant_metrics=state.get("quant_metrics", {}).get(ticker),
         data_flags=state.get("flags", [])
     )
 
@@ -67,7 +84,7 @@ async def risk_agent_node(state: AgentState) -> dict:
         }
     )
     return {
-        "risk_flags": flags,
-        "data_freshness": {"risk": datetime.now(UTC)},
+        "risk_flags": {ticker: flags},
+        "data_freshness": {ticker: datetime.now(UTC)},
         "flags": new_flags
     }

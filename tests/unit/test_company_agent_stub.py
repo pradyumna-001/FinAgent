@@ -37,7 +37,7 @@ async def test_company_agent_propagates_service_fatal_for_null_fields():
         state = make_state()
         res = await company_agent_node(state)
 
-    assert res["company_events"] == []
+    assert res["company_events"]["PETR4"] == []
     assert len(res["flags"]) == 1
     flag = res["flags"][0]
     assert isinstance(flag, DataFlag)

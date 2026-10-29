@@ -11,6 +11,7 @@ from app.utils.flags import DataFlag, Severity
 
 logger = logging.getLogger(__name__)
 
+
 async def persist_recommendation_node(state: AgentState) -> dict:
     logger.info(
         "persist_recommendation_node_start",
@@ -32,11 +33,34 @@ async def persist_recommendation_node(state: AgentState) -> dict:
 
     new_flags = []
 
-    if state["recommendation"] is None:
+    tickers = state.get("company_tickers", [])
+    if not tickers:
         new_flags.append(DataFlag(
             source="persist_node",
             severity=Severity.FATAL,
-            message="no recommendation in current state"
+            message="no company_tickers in state"
+        ))
+        await sse_service.emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "agent_completed",
+                "agent_name": "persist",
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
+        return {
+            "flags": new_flags,
+            "data_freshness": {"persist": datetime.now(UTC)}
+        }
+
+    ticker = tickers[0]
+    recommendation = state.get("recommendations", {}).get(ticker)
+
+    if recommendation is None:
+        new_flags.append(DataFlag(
+            source="persist_node",
+            severity=Severity.FATAL,
+            message=f"no recommendation for ticker {ticker} in current state"
         ))
 
         await sse_service.emit_event(
@@ -47,7 +71,6 @@ async def persist_recommendation_node(state: AgentState) -> dict:
                 "timestamp": datetime.now(UTC).isoformat()
             }
         )
-
         return {
             "flags": new_flags,
             "data_freshness": {"persist": datetime.now(UTC)}
@@ -59,16 +82,16 @@ async def persist_recommendation_node(state: AgentState) -> dict:
                 text(f"SET LOCAL app.manager_id = '{int(state['manager_id'])}'")
             )
 
-            recommendation = Recommendation(
+            recommendation_obj = Recommendation(
                 morning_note_id=int(state["morning_note_id"]),
-                action=state["recommendation"]["action"],
-                confidence=state["recommendation"]["confidence"],
-                justification=state["recommendation"]["justification"],
+                action=recommendation["action"],
+                confidence=recommendation["confidence"],
+                justification=recommendation["justification"],
             )
 
-            session.add(recommendation)
+            session.add(recommendation_obj)
             await session.flush()
-            rec_id = recommendation.id
+            rec_id = recommendation_obj.id
 
     confidence = state["confidence_scores"].get("persist", 1.0)
     await sse_service.emit_event(

@@ -37,7 +37,7 @@ async def test_macro_agent_happy_path():
             state = make_state()
             res = await macro_agent_node(state)
 
-    macro = res["macro_context"]
+    macro = res["macro_context"]["global"]
     assert macro is not None
     assert macro["headline"] == "Brazil macro outlook"
     assert macro["summary"] == "Resumo macro de alta confiança."
@@ -57,7 +57,7 @@ async def test_macro_agent_tavily_failure():
         state = make_state()
         res = await macro_agent_node(state)
 
-    assert res["macro_context"] is None
+    assert res["macro_context"]["global"] is None
     flag = res["flags"][-1]
     assert isinstance(flag, DataFlag)
     assert flag.source == "tavily"
@@ -71,7 +71,7 @@ async def test_macro_agent_tavily_config_error():
         state = make_state()
         res = await macro_agent_node(state)
 
-    assert res["macro_context"] is None
+    assert res["macro_context"]["global"] is None
     flag = res["flags"][-1]
     assert isinstance(flag, DataFlag)
     assert flag.source == "tavily"
@@ -93,7 +93,7 @@ async def test_macro_agent_llm_none():
             state = make_state()
             res = await macro_agent_node(state)
 
-    macro = res["macro_context"]
+    macro = res["macro_context"]["global"]
     assert macro["summary"] == "Inflation slowed …"
     flag = res["flags"][-1]
     assert isinstance(flag, DataFlag)

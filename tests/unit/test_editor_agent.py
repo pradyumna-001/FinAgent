@@ -27,8 +27,8 @@ async def test_editor_agent_happy_path() -> None:
         )
         state = await editor_agent_node(make_state())
         assert state["morning_note"] == "Bom dia, mercado estável."
-        assert state["recommendation"]["action"] == "keep"
-        assert state["confidence_scores"]["overall"] == 0.75
+        assert state["recommendations"]["PETR4"]["action"] == "keep"
+        assert state["confidence_scores"]["PETR4"]["overall"] == 0.75
         assert state["data_freshness"]["editor"] is not None
 
 
@@ -41,7 +41,7 @@ async def test_editor_agent_no_raw_text_dataflag() -> None:
         assert state["flags"][-1].source == "summarize_nemotron"
         assert state["flags"][-1].severity == Severity.FATAL
         assert state["morning_note"] is None
-        assert state["confidence_scores"] == {}
+        assert state["confidence_scores"]["PETR4"] == {}
 
 
 @pytest.mark.asyncio
@@ -73,6 +73,6 @@ async def test_editor_agent_confidence_penalties_applied() -> None:
             )
         )
         state = await editor_agent_node(state)
-        assert state["confidence_scores"]["macro"] == 0.49
-        assert state["confidence_scores"]["company"] == 0.49
+        assert state["confidence_scores"]["PETR4"]["macro"] == 0.49
+        assert state["confidence_scores"]["PETR4"]["company"] == 0.49
         assert "Aviso" in state["morning_note"]

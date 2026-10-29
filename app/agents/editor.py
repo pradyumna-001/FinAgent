@@ -53,11 +53,14 @@ async def editor_agent_node(state: AgentState) -> dict:
         else:
             logger.warning("invalid_flag_in_state", extra={"flag": f})
 
+    tickers = state.get("company_tickers", [])
+    ticker = tickers[0] if tickers else ""
+
     user_prompt = EDITOR_PROMPTS.build_user_prompt(
-        macro_context=state.get("macro_context"),
-        company_events=state.get("company_events", []),
-        quant_metrics=state.get("quant_metrics"),
-        risk_flags=state.get("risk_flags", []),
+        macro_context=state.get("macro_context", {}).get("global"),
+        company_events=state.get("company_events", {}).get(ticker, []),
+        quant_metrics=state.get("quant_metrics", {}).get(ticker),
+        risk_flags=state.get("risk_flags", {}).get(ticker, []),
         data_flags=data_flags
     )
 
@@ -95,8 +98,8 @@ async def editor_agent_node(state: AgentState) -> dict:
         sse_service.cleanup(state["pipeline_run_id"])
         return {
             "morning_note": None,
-            "recommendation": None,
-            "confidence_scores": {},
+            "recommendations": {ticker: None} if tickers else {},
+            "confidence_scores": {ticker: {}} if tickers else {},
             "data_freshness": {"editor": datetime.now(UTC)},
             "flags": new_flags
         }
@@ -132,8 +135,8 @@ async def editor_agent_node(state: AgentState) -> dict:
         sse_service.cleanup(state["pipeline_run_id"])
         return {
             "morning_note": None,
-            "recommendation": None,
-            "confidence_scores": {},
+            "recommendations": {ticker: None} if tickers else {},
+            "confidence_scores": {ticker: {}} if tickers else {},
             "data_freshness": {"editor": datetime.now(UTC)},
             "flags": new_flags
         }
@@ -186,8 +189,8 @@ async def editor_agent_node(state: AgentState) -> dict:
             sse_service.cleanup(state["pipeline_run_id"])
             return {
                 "morning_note": None,
-                "recommendation": None,
-                "confidence_scores": {},
+                "recommendations": {ticker: None} if tickers else {},
+                "confidence_scores": {ticker: {}} if tickers else {},
                 "data_freshness": {"editor": datetime.now(UTC)},
                 "flags": new_flags
             }
@@ -220,8 +223,8 @@ async def editor_agent_node(state: AgentState) -> dict:
         sse_service.cleanup(state["pipeline_run_id"])
         return {
             "morning_note": None,
-            "recommendation": None,
-            "confidence_scores": {},
+            "recommendations": {ticker: None} if tickers else {},
+            "confidence_scores": {ticker: {}} if tickers else {},
             "data_freshness": {"editor": datetime.now(UTC)},
             "flags": new_flags
         }
@@ -252,8 +255,8 @@ async def editor_agent_node(state: AgentState) -> dict:
     sse_service.cleanup(state["pipeline_run_id"])
     return {
         "morning_note": morning_note,
-        "recommendation": parsed["recommendation"],
-        "confidence_scores": penalized_scores,
+        "recommendations": {ticker: parsed["recommendation"]} if ticker else {},
+        "confidence_scores": {ticker: penalized_scores} if ticker else {},
         "data_freshness": {"editor": datetime.now(UTC)},
         "flags": new_flags
     }
