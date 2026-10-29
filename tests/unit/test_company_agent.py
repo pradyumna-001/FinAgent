@@ -30,12 +30,12 @@ async def test_company_agent_no_key():
         state = make_state()
         result = await company_agent_node(state)
 
-    assert result["company_events"] == []
+    assert result["company_events"]["PETR4"] == []
     flag = result["flags"][-1]
     assert isinstance(flag, DataFlag)
     assert flag.source == "tavily"
     assert flag.severity == Severity.FATAL
-    assert isinstance(result["data_freshness"]["company"], datetime)
+    assert isinstance(result["data_freshness"]["PETR4"], datetime)
 
 
 @pytest.mark.asyncio
@@ -53,7 +53,7 @@ async def test_company_agent_llm_none():
             state = make_state()
             res = await company_agent_node(state)
 
-    events = res["company_events"]
+    events = res["company_events"]["PETR4"]
     assert len(events) == 1
     assert events[0]["summary"] == "Petrobras reported record earnings..."
     flag = res["flags"][-1]
@@ -76,12 +76,12 @@ async def test_company_agent_happy_path():
             state = make_state()
             res = await company_agent_node(state)
 
-    events = res["company_events"]
+    events = res["company_events"]["PETR4"]
     assert len(events) == 1
     assert events[0]["title"] == "PETR4 earnings Q3"
     assert events[0]["summary"] == "Resumo de earnings da Petrobras."
     assert events[0]["source"] == "https://infomoney.com.br/petr4"
-    assert isinstance(res["data_freshness"]["company"], datetime)
+    assert isinstance(res["data_freshness"]["PETR4"], datetime)
     assert res["flags"] == []
 
 
@@ -95,7 +95,7 @@ async def test_company_agent_tavily_service_error():
         state = make_state()
         res = await company_agent_node(state)
 
-    assert res["company_events"] == []
+    assert res["company_events"]["PETR4"] == []
     flag = res["flags"][-1]
     assert isinstance(flag, DataFlag)
     assert flag.source == "tavily"

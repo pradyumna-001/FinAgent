@@ -15,7 +15,7 @@ async def test_macro_agent_no_key():
         )
         result = await macro_agent_node(state)
 
-    assert result["macro_context"] is None
+    assert result["macro_context"]["global"] is None
     assert any(
         f.source == "tavily" and f.severity == Severity.FATAL
         for f in result["flags"]

@@ -37,6 +37,9 @@ async def company_agent_node(state: AgentState) -> dict:
 
     new_flags = []
 
+    tickers = state.get("company_tickers", [])
+    ticker = tickers[0] if tickers else "company"
+
     try:
         tavily = TavilyService(api_key=settings.TAVILY_API_KEY)
     except TavilyConfigError as exc:
@@ -58,12 +61,26 @@ async def company_agent_node(state: AgentState) -> dict:
             }
         )
         return {
-            "company_events": [],
-            "data_freshness": {"company": datetime.now(UTC)},
+            "company_events": {ticker: []},
+            "data_freshness": {ticker: datetime.now(UTC)},
             "flags": new_flags
         }
 
-    ticker = state["company_ticker"]
+    if not tickers:
+        new_flags.append(
+            DataFlag(
+                source="company",
+                severity=Severity.FATAL,
+                message="No company_tickers in state"
+            )
+        )
+        return {
+            "company_events": {ticker: []},
+            "data_freshness": {ticker: datetime.now(UTC)},
+            "flags": new_flags
+        }
+
+    ticker = tickers[0]
     result = await tavily.search(
         query=f"{ticker} news Brazil",
         include_domains=[
@@ -86,8 +103,8 @@ async def company_agent_node(state: AgentState) -> dict:
             }
         )
         return {
-            "company_events": [],
-            "data_freshness": {"company": datetime.now(UTC)},
+            "company_events": {ticker: []},
+            "data_freshness": {ticker: datetime.now(UTC)},
             "flags": new_flags
         }
 
@@ -131,7 +148,7 @@ async def company_agent_node(state: AgentState) -> dict:
         }
     )
     return {
-        "company_events": company_events,
-        "data_freshness": {"company": datetime.now(UTC)},
+        "company_events": {ticker: company_events},
+        "data_freshness": {ticker: datetime.now(UTC)},
         "flags": new_flags
     }

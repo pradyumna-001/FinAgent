@@ -21,7 +21,7 @@ async def test_approval_gate_node_no_recommendation() -> None:
     assert len(result["flags"]) == 1
     assert result["flags"][0].source == "approval_gate_node"
     assert result["flags"][0].severity == Severity.FATAL
-    assert "no recommendation in current state" in result["flags"][0].message
+    assert "no recommendation for ticker PETR4 in current state" in result["flags"][0].message
     assert "data_freshness" in result
     assert "approval_gate" in result["data_freshness"]
     assert not ("manager_decision" in result or "decision_channel" in result)
@@ -36,10 +36,12 @@ async def test_approval_gate_node_invalid_decision() -> None:
         morning_note_id="note-1"
     )
     state["recommendation_id"] = 123
-    state["recommendation"] = {
-        "action": "buy",
-        "confidence": 0.9,
-        "justification": "Strong fundamentals"
+    state["recommendations"] = {
+        "PETR4": {
+            "action": "buy",
+            "confidence": 0.9,
+            "justification": "Strong fundamentals"
+        }
     }
 
     with patch("app.agents.approval_gate.interrupt") as mock_interrupt:
@@ -73,10 +75,12 @@ async def test_approval_gate_node_valid_decision() -> None:
         morning_note_id="note-1"
     )
     state["recommendation_id"] = 123
-    state["recommendation"] = {
-        "action": "buy",
-        "confidence": 0.9,
-        "justification": "Strong fundamentals"
+    state["recommendations"] = {
+        "PETR4": {
+            "action": "buy",
+            "confidence": 0.9,
+            "justification": "Strong fundamentals"
+        }
     }
 
     with patch("app.agents.approval_gate.interrupt") as mock_interrupt, \

@@ -22,14 +22,27 @@ logger = logging.getLogger(__name__)
 
 async def approval_gate_node(state: AgentState) -> dict:
     """Suspend until the manager approves/rejects; on resume, persist the decision."""
+    tickers = state.get("company_tickers", [])
+    if not tickers:
+        new_flags = [DataFlag(
+            source="approval_gate_node",
+            severity=Severity.FATAL,
+            message="no company_tickers in state"
+        )]
+        return {
+            "flags": new_flags,
+            "data_freshness": {"approval_gate": datetime.now(UTC)}
+        }
+
+    ticker = tickers[0]
     recommendation_id = state.get("recommendation_id")
-    recommendation = state.get("recommendation")
+    recommendation = state.get("recommendations", {}).get(ticker)
 
     if recommendation_id is None or recommendation is None:
         new_flags = [DataFlag(
             source="approval_gate_node",
             severity=Severity.FATAL,
-            message="no recommendation in current state"
+            message=f"no recommendation for ticker {ticker} in current state"
         )]
         return {
             "flags": new_flags,
@@ -46,7 +59,7 @@ async def approval_gate_node(state: AgentState) -> dict:
 
     decision = interrupt({
         "recommendation_id": recommendation_id,
-        "ticker": state["company_ticker"],
+        "ticker": ticker,
         "action": recommendation["action"],
         "confidence": recommendation["confidence"],
         "justification": recommendation["justification"],
