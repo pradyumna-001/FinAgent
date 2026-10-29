@@ -89,6 +89,7 @@ class MorningNote(Base):
     confidence_scores: Mapped[dict[str, float]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     data_freshness: Mapped[dict[str, datetime]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     flags: Mapped[list[dict[str, str]]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    recommendations: Mapped[dict[str, dict]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     manager_id: Mapped[int] = mapped_column(ForeignKey("managers.id"), nullable=False, index=True)
     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), nullable=False, index=True)
     embedding: Mapped[list[float] | None] = mapped_column(HALFVEC(2048), nullable=True)
