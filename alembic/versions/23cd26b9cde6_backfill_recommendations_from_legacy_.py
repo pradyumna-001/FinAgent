@@ -5,17 +5,15 @@ Revises: 47c0547b9d12
 Create Date: 2026-10-29 14:27:17.707541
 
 """
-from typing import Sequence, Union
+from typing import Union
 
 from alembic import op
-import sqlalchemy as sa
-
 
 # revision identifiers, used by Alembic.
 revision: str = '23cd26b9cde6'
-down_revision: Union[str, Sequence[str], None] = '47c0547b9d12'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: Union[str, None] = '47c0547b9d12'
+branch_labels: Union[str, None] = None
+depends_on: Union[str, None] = None
 
 
 def upgrade() -> None:
@@ -43,10 +41,10 @@ def upgrade() -> None:
           AND mn.company_id IS NOT NULL;
     """)
 
+
 def downgrade() -> None:
     op.execute("""
         UPDATE morning_notes
         SET recommendations = '{}'::jsonb
         WHERE company_id IS NOT NULL;
     """)
-    

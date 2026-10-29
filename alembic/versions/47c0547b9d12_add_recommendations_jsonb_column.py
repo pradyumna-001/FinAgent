@@ -1,22 +1,22 @@
-"""add_recommendation_jsonb_column
+"""add_recommendations_jsonb_column
 
 Revision ID: 47c0547b9d12
 Revises: fbd0477cc892
 Create Date: 2026-10-29 14:14:06.216580
 
 """
-from typing import Sequence, Union
+from typing import Union
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '47c0547b9d12'
-down_revision: Union[str, Sequence[str], None] = 'fbd0477cc892'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: Union[str, None] = 'fbd0477cc892'
+branch_labels: Union[str, None] = None
+depends_on: Union[str, None] = None
 
 
 def upgrade() -> None:

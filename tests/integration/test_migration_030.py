@@ -181,3 +181,4 @@ async def test_company_id_still_not_null(migrated_db_url: str) -> None:
         assert is_nullable == "NO"
     finally:
         await conn.close()
+
