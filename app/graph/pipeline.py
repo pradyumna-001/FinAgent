@@ -28,24 +28,27 @@ def validated_node(node_fn, name: str):
 
 def fan_out_company(state: AgentState) -> list[Send]:
     """Fan out to company agent for each ticker."""
+    base = {k: v for k, v in state.items() if k != "company_tickers"}
     return [
-        Send("company", {"current_ticker": t, "company_tickers": [t]})
+        Send("company", {**base, "current_ticker": t, "company_tickers": [t]})
         for t in state["company_tickers"]
     ]
 
 
 def fan_out_quant(state: AgentState) -> list[Send]:
     """Fan out to quant agent for each ticker."""
+    base = {k: v for k, v in state.items() if k != "company_tickers"}
     return [
-        Send("quant", {"current_ticker": t, "company_tickers": [t]})
+        Send("quant", {**base, "current_ticker": t, "company_tickers": [t]})
         for t in state["company_tickers"]
     ]
 
 
 def fan_out_risk(state: AgentState) -> list[Send]:
     """Fan out to risk agent for each ticker."""
+    base = {k: v for k, v in state.items() if k != "company_tickers"}
     return [
-        Send("risk", {"current_ticker": t, "company_tickers": [t]})
+        Send("risk", {**base, "current_ticker": t, "company_tickers": [t]})
         for t in state["company_tickers"]
     ]
 

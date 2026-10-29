@@ -27,10 +27,10 @@ from app.middleware.correlation import CorrelationMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
+    async with engine().begin() as conn:
         await conn.execute(text("SELECT 1"))
     yield
-    await engine.dispose()
+    await engine().dispose()
 
 
 app = FastAPI(title="FinAgent", lifespan=lifespan)
@@ -53,7 +53,7 @@ app.include_router(feedback_router)
 @app.get("/health")
 async def health(request: Request) -> Response:
     try:
-        async with engine.begin() as conn:
+        async with engine().begin() as conn:
             await conn.execute(text("SELECT 1"))
         return JSONResponse({"status": "ok", "db": "ok"})
     except SQLAlchemyError:

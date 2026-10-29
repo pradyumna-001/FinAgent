@@ -84,7 +84,7 @@ async def finalize_morning_note_node(state: AgentState) -> dict:
                 )
 
                 # SQLAlchemy 2.0 Result has rowcount attribute
-                rowcount = result.rowcount  # type: ignore[attr-defined]
+                rowcount = result.rowcount
                 if rowcount is None or rowcount == 0:
                     logger.warning(
                         "finalize: morning note not found",
