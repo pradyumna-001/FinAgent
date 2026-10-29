@@ -81,11 +81,18 @@ def migrated_db_url(pg_container: PostgresContainer) -> Generator[str, None, Non
 
 
 @pytest.fixture(scope="session")
-def finagent_app_role(migrated_db_url: str) -> Generator[str, None, None]:
-    admin_url = migrated_db_url.replace("postgresql+asyncpg", "postgresql", 1)
+def admin_db_url(pg_container: PostgresContainer) -> str:
+    """Admin (superuser) connection URL for test setup/teardown."""
+    url = pg_container.get_connection_url(driver="psycopg")
+    # asyncpg requires 'postgresql' scheme, not 'postgresql+psycopg'
+    return url.replace("postgresql+psycopg://", "postgresql://")
+
+
+@pytest.fixture(scope="session")
+def finagent_app_role(migrated_db_url: str, admin_db_url: str) -> Generator[str, None, None]:
 
     async def _admin() -> asyncpg.Connection:
-        return await asyncpg.connect(admin_url)
+        return await asyncpg.connect(admin_db_url)
 
     async def _setup() -> None:
         conn = await _admin()
@@ -168,7 +175,7 @@ def finagent_app_role(migrated_db_url: str) -> Generator[str, None, None]:
 
     asyncio.run(_setup())
     try:
-        yield f"postgresql+asyncpg://finagent_app:finagent_app_pwd@{admin_url.split('@', 1)[1]}"
+        yield f"postgresql+asyncpg://finagent_app:finagent_app_pwd@{admin_db_url.split('@', 1)[1]}"
     finally:
         asyncio.run(_teardown())
 
