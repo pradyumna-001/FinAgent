@@ -99,7 +99,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     continue-on-error: true
-    if: false  # Temporarily disabled until #129 test migration complete
     services:
       postgres:
         image: pgvector/pgvector:pg16
