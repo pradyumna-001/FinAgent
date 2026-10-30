@@ -16,21 +16,21 @@ db_url = os.environ.get("DATABASE_URL", "postgresql+asyncpg://finagent:password@
 os.environ["MIGRATION_DATABASE_URL"] = migration_db_url
 os.environ["DATABASE_URL"] = db_url
 
-from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.graph import END, START, StateGraph
-from langgraph.types import Send
-from sqlalchemy import delete, insert
+from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
+from langgraph.graph import END, START, StateGraph  # noqa: E402
+from langgraph.types import Send  # noqa: E402
+from sqlalchemy import delete, insert  # noqa: E402
 
-from app.agents.company import company_agent_node
-from app.agents.consolidate import consolidate_node
-from app.agents.editor import editor_agent_node
-from app.agents.macro import macro_agent_node
-from app.agents.quant import quant_agent_node
-from app.agents.risk import risk_agent_node
-from app.db.models import Company, Manager, Portfolio, PortfolioHolding
-from app.db.session import SessionLocal
-from app.graph.serialization import get_serializer
-from app.graph.state import AgentState, InvalidStateError, create_initial_state_multi
+from app.agents.company import company_agent_node  # noqa: E402
+from app.agents.consolidate import consolidate_node  # noqa: E402
+from app.agents.editor import editor_agent_node  # noqa: E402
+from app.agents.macro import macro_agent_node  # noqa: E402
+from app.agents.quant import quant_agent_node  # noqa: E402
+from app.agents.risk import risk_agent_node  # noqa: E402
+from app.db.models import Company, Manager, Portfolio, PortfolioHolding  # noqa: E402
+from app.db.session import SessionLocal  # noqa: E402
+from app.graph.serialization import get_serializer  # noqa: E402
+from app.graph.state import AgentState, InvalidStateError, create_initial_state_multi  # noqa: E402
 
 
 async def setup_test_data():
