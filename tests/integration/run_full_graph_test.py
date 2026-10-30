@@ -30,7 +30,11 @@ from app.agents.risk import risk_agent_node  # noqa: E402
 from app.db.models import Company, Manager, Portfolio, PortfolioHolding  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
 from app.graph.serialization import get_serializer  # noqa: E402
-from app.graph.state import AgentState, InvalidStateError, create_initial_state_multi  # noqa: E402
+from app.graph.state import (  # noqa: E402
+    AgentState,
+    InvalidStateError,
+    create_initial_state_multi,
+)
 
 
 async def setup_test_data():
