@@ -4,13 +4,51 @@ import asyncio
 import os
 import subprocess
 import sys
-from collections.abc import Generator
+from collections.abc import AsyncIterator, Generator
 from pathlib import Path
-from typing import Iterator
 
 import asyncpg
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+# Module-level engine singleton to avoid event loop conflicts across fixtures/tests
+# Created lazily on first use, recreated if event loop changes
+_test_engine = None
+_test_session_local = None
+_test_engine_loop_id = None
+
+
+def _get_test_engine():
+    """Get or create the test engine singleton, recreating if event loop changes."""
+    global _test_engine, _test_session_local, _test_engine_loop_id
+    current_loop = asyncio.get_event_loop()
+    current_loop_id = id(current_loop)
+
+    if _test_engine is None or _test_engine_loop_id != current_loop_id:
+        # Event loop changed or first use - dispose old engine if exists
+        if _test_engine is not None:
+            # Schedule disposal in the old loop (fire and forget)
+            try:
+                # We can't easily dispose in the old loop from here,
+                # so we just create a new engine. The old one will be GC'd.
+                pass
+            except Exception:
+                pass
+
+        _test_engine = create_async_engine(
+            "postgresql+asyncpg://finagent:password@localhost:5434/finagent",
+            echo=False,
+            pool_pre_ping=True,
+            pool_recycle=300,
+            pool_size=20,
+            max_overflow=40,
+            pool_timeout=60,
+        )
+        _test_session_local = async_sessionmaker(_test_engine, expire_on_commit=False)
+        _test_engine_loop_id = current_loop_id
+
+    return _test_engine, _test_session_local
+
 
 # Try to import testcontainers; skip if not available
 try:
@@ -47,6 +85,17 @@ os.environ.setdefault("LANGCHAIN_API_KEY", "")
 os.environ.setdefault("LANGCHAIN_TRACING_V2", "false")
 
 import app.db.session as db_session  # noqa: E402 (must be after env vars for pydantic settings)
+
+
+# Session-scoped event loop to share across all tests and fixtures
+# This avoids "Future attached to a different loop" errors
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create a session-scoped event loop for all tests."""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
+
 
 # Detect if we're in CI (GitHub Actions) or have Docker available
 IN_CI = os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true"
@@ -218,9 +267,46 @@ def finagent_app_role(migrated_db_url: str, admin_db_url: str) -> Generator[str,
 
 
 @pytest.fixture
-def bound_engine(migrated_db_url: str) -> Iterator[None]:
-    engine = create_async_engine(migrated_db_url, echo=False)
+async def bound_engine() -> AsyncIterator[None]:
+    """Provide the shared test engine for integration tests.
+
+    Uses a module-level singleton engine to avoid event loop conflicts.
+    """
+    engine, session_local = _get_test_engine()
     db_session.engine = engine
-    db_session.SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+    db_session.SessionLocal = session_local
+    try:
+        yield
+    finally:
+        # Don't dispose the singleton engine - let it live for the test session
+        pass
+
+
+@pytest.fixture
+async def clean_db(bound_engine):
+    """Provide a clean database state for each test by truncating all tables."""
+    from sqlalchemy import delete
+
+    from app.db.models import Company, Manager, Portfolio, PortfolioHolding
+    from app.db.session import SessionLocal
+
+    async with SessionLocal() as session:
+        # Delete in correct order: children first
+        from sqlalchemy import delete
+
+        from app.db.models import Company, Manager, Portfolio, PortfolioHolding
+        await session.execute(delete(PortfolioHolding))
+        await session.execute(delete(Portfolio))
+        await session.execute(delete(Company))
+        await session.execute(delete(Manager))
+        await session.commit()
     yield
-    engine.sync_engine.dispose()
+    async with SessionLocal() as session:
+        from sqlalchemy import delete
+
+        from app.db.models import Company, Manager, Portfolio, PortfolioHolding
+        await session.execute(delete(PortfolioHolding))
+        await session.execute(delete(Portfolio))
+        await session.execute(delete(Company))
+        await session.execute(delete(Manager))
+        await session.commit()

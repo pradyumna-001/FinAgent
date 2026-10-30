@@ -40,11 +40,12 @@ from app.graph.state import (  # noqa: E402
 async def setup_test_data():
     """Insert test data: manager, companies, portfolio, holdings."""
     async with SessionLocal() as session:
-        # Clean up existing test data
-        await session.execute(delete(PortfolioHolding).where(PortfolioHolding.portfolio_id == 999))
-        await session.execute(delete(Portfolio).where(Portfolio.id == 999))
-        await session.execute(delete(Company).where(Company.ticker.in_(["PETR4", "VALE3", "ITUB4"])))
-        await session.execute(delete(Manager).where(Manager.id == 999))
+        # Clean up existing test data - delete in correct order: children first
+        await session.execute(delete(PortfolioHolding))
+        await session.execute(delete(Portfolio))
+        await session.execute(delete(Company))
+        await session.execute(delete(Manager))
+        await session.commit()
 
         # Insert test data with explicit IDs
         await session.execute(insert(Manager).values(id=999, name="Test Manager", email="test@test.com", password_hash="hash"))
@@ -61,11 +62,12 @@ async def setup_test_data():
 async def setup_single_ticker_test_data():
     """Insert test data for single ticker test."""
     async with SessionLocal() as session:
-        # Clean up ALL test data from both tests
-        await session.execute(delete(PortfolioHolding).where(PortfolioHolding.portfolio_id.in_([999, 998])))
-        await session.execute(delete(Portfolio).where(Portfolio.id.in_([999, 998])))
-        await session.execute(delete(Company).where(Company.ticker.in_(["PETR4", "VALE3", "ITUB4"])))
-        await session.execute(delete(Manager).where(Manager.id.in_([999, 998])))
+        # Clean up ALL test data from both tests - delete in correct order
+        await session.execute(delete(PortfolioHolding))
+        await session.execute(delete(Portfolio))
+        await session.execute(delete(Company))
+        await session.execute(delete(Manager))
+        await session.commit()
 
         await session.execute(insert(Manager).values(id=998, name="Test Manager 2", email="test2@test.com", password_hash="hash"))
         await session.execute(insert(Company).values(id=10, ticker="PETR4", name="Petrobras", sector="Energy"))
