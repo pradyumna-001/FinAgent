@@ -5,7 +5,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.graph.state import InvalidStateError, create_initial_state
+from app.graph.state import (
+    InvalidStateError,
+    create_initial_state_multi,
+)
 from app.services.tavily import TavilyArticle, TavilyResult
 from app.services.yfinance import QuoteMetrics, YfinanceResult
 from app.utils.flags import DataFlag, Severity
@@ -58,9 +61,9 @@ EDITOR_JSON = json.dumps({
 
 
 def make_state(manager_id: int = 1, ticker: str = "PETR4"):
-    return create_initial_state(
+    return create_initial_state_multi(
         manager_id=manager_id,
-        company_ticker=ticker,
+        company_tickers=[ticker],
         pipeline_run_id="run-1",
         morning_note_id="note-1"
     )
@@ -172,8 +175,11 @@ async def test_validate_state_rejects_invalid(test_graph):
 async def test_confidence_scores_populated(test_graph, patched_services):
     result = await test_graph.ainvoke(make_state(), config={"configurable": {"thread_id": THREAD_ID}})
     scores = result["confidence_scores"]
-    assert set(scores.keys()) == {"macro", "company", "quant", "risk", "overall"}
-    assert all(isinstance(v, float) for v in scores.values())
+    # New format: dict-keyed by ticker
+    assert "PETR4" in scores
+    ticker_scores = scores["PETR4"]
+    assert set(ticker_scores.keys()) == {"macro", "company", "quant", "risk", "overall"}
+    assert all(isinstance(v, float) for v in ticker_scores.values())
 
 
 @pytest.mark.asyncio
@@ -196,8 +202,9 @@ async def test_parallel_execution(test_graph, patched_services):
     assert any(f.source == "tavily" for f in flags), "company flag lost in merge"
     assert any(f.source == "yfinance" for f in flags), "quant flag lost in merge"
 
-    cf = result["data_freshness"]["company"]
-    qf = result["data_freshness"]["quant"]
+    # data_freshness is dict-keyed by ticker (company and quant both write to "PETR4" key)
+    cf = result["data_freshness"]["PETR4"]
+    qf = result["data_freshness"]["PETR4"]
     assert abs((cf - qf).total_seconds()) < 1.0, "parallel timestamps diverged"
 
 
@@ -209,5 +216,6 @@ async def test_fail_visible_invariant(test_graph, patched_services):
         ))
         result = await test_graph.ainvoke(make_state(), config={"configurable": {"thread_id": THREAD_ID}})
 
+    # Morning note now has ### PETR4 header
     note = result["morning_note"]
     assert "[Aviso]: company - dados incompletos ou falhos" in note

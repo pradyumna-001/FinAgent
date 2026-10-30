@@ -13,6 +13,8 @@ async def test_health_returns_503_when_db_raises(monkeypatch: pytest.MonkeyPatch
 
 
     class _StubEngine:
+        def __call__(self):
+            return self
         def begin(self):
             return _RaisingConn()
 
