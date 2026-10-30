@@ -46,8 +46,7 @@ os.environ.setdefault("NVIDIA_NEMOTRON_MODEL", "nvidia/nemotron-3-ultra")
 os.environ.setdefault("LANGCHAIN_API_KEY", "")
 os.environ.setdefault("LANGCHAIN_TRACING_V2", "false")
 
-import app.db.session as db_session
-
+import app.db.session as db_session  # noqa: E402 (must be after env vars for pydantic settings)
 
 # Detect if we're in CI (GitHub Actions) or have Docker available
 IN_CI = os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true"
@@ -72,7 +71,7 @@ def pg_container() -> Generator["PostgresContainer", None, None]:
     """PostgreSQL container for CI. Uses existing PG on Windows/local."""
     if not USE_TESTCONTAINERS:
         pytest.skip("Using existing PostgreSQL; testcontainers not needed")
-    
+
     try:
         with PostgresContainer("pgvector/pgvector:pg16") as pg:
             yield pg
@@ -89,7 +88,7 @@ def migrated_db_url(pg_container) -> Generator[str, None, None]:
     else:
         url = DEFAULT_DB_URL_ASYNC
         admin_url = DEFAULT_DB_URL_SYNC
-    
+
     original_db_url = os.environ.get("DATABASE_URL")
     original_migration_url = os.environ.get("MIGRATION_DATABASE_URL")
     os.environ["DATABASE_URL"] = url
@@ -213,7 +212,7 @@ def finagent_app_role(migrated_db_url: str, admin_db_url: str) -> Generator[str,
             host_port = admin_db_url.split('@', 1)[1]
             yield f"postgresql+asyncpg://finagent_app:finagent_app_pwd@{host_port}"
         else:
-            yield f"postgresql+asyncpg://finagent_app:finagent_app_pwd@localhost:5434/finagent"
+            yield "postgresql+asyncpg://finagent_app:finagent_app_pwd@localhost:5434/finagent"
     finally:
         asyncio.run(_teardown())
 
