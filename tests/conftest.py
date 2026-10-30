@@ -10,9 +10,7 @@ from typing import Iterator
 
 import asyncpg
 import pytest
-from docker.errors import DockerException
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from testcontainers.community.postgres import PostgresContainer
 
 from app.utils.security import hash_password
 
@@ -21,14 +19,14 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
-os.environ.setdefault(
-    "DATABASE_URL",
-    "postgresql+asyncpg://placeholder@localhost:5432/placeholder",
-)
-os.environ.setdefault(
-    "MIGRATION_DATABASE_URL",
-    "postgresql://placeholder@localhost:5432/placeholder",
-)
+# Use existing PostgreSQL on port 5434 (started manually via Docker)
+# This avoids testcontainer connection reset issues on Windows
+EXISTING_PG_URL_ASYNC = "postgresql+asyncpg://finagent:password@localhost:5434/finagent"
+EXISTING_PG_URL_SYNC = "postgresql+psycopg://finagent:password@localhost:5434/finagent"
+EXISTING_PG_URL_ADMIN = "postgresql://finagent:password@localhost:5434/finagent"
+
+os.environ.setdefault("DATABASE_URL", EXISTING_PG_URL_ASYNC)
+os.environ.setdefault("MIGRATION_DATABASE_URL", EXISTING_PG_URL_SYNC)
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("SECRET_KEY", "TEST_SECRET_KEY_REPLACE_IN_PRODUCTION")
 os.environ.setdefault("TAVILY_API_KEY", "tvly-TEST_KEY_REPLACE_IN_PRODUCTION")
@@ -44,31 +42,25 @@ import app.db.session as db_session
 
 
 @pytest.fixture(scope="session")
-def pg_container() -> Generator[PostgresContainer, None, None]:
-    try:
-        with PostgresContainer("pgvector/pgvector:pg16") as pg:
-            yield pg
-    except DockerException:
-        pytest.skip(
-            "Docker daemon not reachable. Start Docker Desktop or configure DOCKER_HOST."
-        )
+def existing_pg_url() -> str:
+    """Connection URL for existing PostgreSQL on port 5434."""
+    return EXISTING_PG_URL_ASYNC
 
 
 @pytest.fixture(scope="session")
-def migrated_db_url(pg_container: PostgresContainer) -> Generator[str, None, None]:
-    url = pg_container.get_connection_url(driver="asyncpg")
-    admin_url = pg_container.get_connection_url(driver="psycopg")
+def migrated_db_url(existing_pg_url: str) -> Generator[str, None, None]:
+    """Run migrations against existing PostgreSQL and yield connection URL."""
     original_db_url = os.environ.get("DATABASE_URL")
     original_migration_url = os.environ.get("MIGRATION_DATABASE_URL")
-    os.environ["DATABASE_URL"] = url
-    os.environ["MIGRATION_DATABASE_URL"] = admin_url
+    os.environ["DATABASE_URL"] = existing_pg_url
+    os.environ["MIGRATION_DATABASE_URL"] = EXISTING_PG_URL_SYNC
     try:
         subprocess.run(
             ["alembic", "upgrade", "heads"],
             check=True,
             cwd=str(Path(__file__).resolve().parent.parent),
         )
-        yield url
+        yield existing_pg_url
     finally:
         if original_db_url is None:
             os.environ.pop("DATABASE_URL", None)
@@ -81,11 +73,9 @@ def migrated_db_url(pg_container: PostgresContainer) -> Generator[str, None, Non
 
 
 @pytest.fixture(scope="session")
-def admin_db_url(pg_container: PostgresContainer) -> str:
+def admin_db_url() -> str:
     """Admin (superuser) connection URL for test setup/teardown."""
-    url = pg_container.get_connection_url(driver="psycopg")
-    # asyncpg requires 'postgresql' scheme, not 'postgresql+psycopg'
-    return url.replace("postgresql+psycopg://", "postgresql://")
+    return EXISTING_PG_URL_ADMIN
 
 
 @pytest.fixture(scope="session")
@@ -175,7 +165,7 @@ def finagent_app_role(migrated_db_url: str, admin_db_url: str) -> Generator[str,
 
     asyncio.run(_setup())
     try:
-        yield f"postgresql+asyncpg://finagent_app:finagent_app_pwd@{admin_db_url.split('@', 1)[1]}"
+        yield f"postgresql+asyncpg://finagent_app:finagent_app_pwd@localhost:5434/finagent"
     finally:
         asyncio.run(_teardown())
 
