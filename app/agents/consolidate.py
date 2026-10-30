@@ -3,12 +3,17 @@ from datetime import UTC, datetime
 
 from sqlalchemy import select
 
+from app.db import session as db_session
 from app.db.models import Company
-from app.db.session import SessionLocal
 from app.graph.state import AgentState
 from app.utils.flags import DataFlag, Severity
 
 logger = logging.getLogger(__name__)
+
+
+def _get_session_local():
+    """Get SessionLocal at runtime to support test patching."""
+    return db_session.SessionLocal
 
 
 async def consolidate_node(state: AgentState) -> dict:
@@ -37,7 +42,7 @@ async def consolidate_node(state: AgentState) -> dict:
         }
 
     # Fetch sectors for all tickers
-    async with SessionLocal() as session:
+    async with _get_session_local()() as session:
         result = await session.execute(
             select(Company.ticker, Company.sector)
             .where(Company.ticker.in_(tickers))
