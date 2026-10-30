@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime
+from typing import cast
 
 from app.graph.state import AgentState, QuantOutput
 from app.services.sse import sse_service
@@ -34,7 +35,7 @@ async def quant_agent_node(state: AgentState) -> dict:
 
     new_flags = []
 
-    ticker = state.get("current_ticker")
+    ticker = cast(str, state.get("current_ticker"))
     if ticker is None:
         # Fallback for direct calls / legacy path / tests
         tickers = state.get("company_tickers", [])
@@ -53,8 +54,6 @@ async def quant_agent_node(state: AgentState) -> dict:
                 "flags": new_flags
             }
 
-    # ticker is guaranteed to be str here
-    assert ticker is not None
 
     try:
         yfinance_service = YfinanceService(ticker=ticker)
