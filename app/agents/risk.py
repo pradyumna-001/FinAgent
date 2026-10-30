@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime
+from typing import cast
 
 from app.graph.state import AgentState
 from app.prompts.risk import RISK_PROMPTS
@@ -33,7 +34,7 @@ async def risk_agent_node(state: AgentState) -> dict:
         }
     )
 
-    ticker = state.get("current_ticker")
+    ticker = cast(str, state.get("current_ticker"))
     if ticker is None:
         # Fallback for direct calls / legacy path / tests
         tickers = state.get("company_tickers", [])
@@ -52,8 +53,6 @@ async def risk_agent_node(state: AgentState) -> dict:
                 "flags": new_flags
             }
 
-    # ticker is guaranteed to be str here
-    assert ticker is not None
 
     user_prompt = RISK_PROMPTS.build_user_prompt(
         macro_context=state.get("macro_context", {}).get("global"),

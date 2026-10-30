@@ -28,17 +28,16 @@ async def editor_agent_node(state: AgentState) -> dict:
 
     # Normalize flags from state (handles both DataFlag objects and dicts from reducers)
     raw_flags = state.get("flags", [])
-    data_flags = []
     for f in raw_flags:
         if isinstance(f, DataFlag):
-            data_flags.append(f)
+            new_flags.append(f)
         elif isinstance(f, dict) and "source" in f:
             sev = f["severity"]
             if isinstance(sev, Severity):
                 severity = sev
             else:
                 severity = Severity(sev)
-            data_flags.append(DataFlag(
+            new_flags.append(DataFlag(
                 source=f["source"],
                 severity=severity,
                 message=f["message"],
@@ -101,7 +100,7 @@ async def editor_agent_node(state: AgentState) -> dict:
             company_events=state.get("company_events", {}).get(t, []),
             quant_metrics=state.get("quant_metrics", {}).get(t),
             risk_flags=state.get("risk_flags", {}).get(t, []),
-            data_flags=data_flags
+            data_flags=new_flags
         )
 
         async with semaphore:
@@ -195,7 +194,7 @@ async def editor_agent_node(state: AgentState) -> dict:
     penalized_confidence_scores: dict[str, dict[str, float]] = {}
     all_warnings: list[str] = []
     for t, conf in confidence_scores.items():
-        if conf:
+        # Apply penalties even for empty dicts (failed tickers)
             penalized, warnings = apply_confidence_penalties(conf, all_new_flags)
             penalized_confidence_scores[t] = penalized
             all_warnings.extend(warnings)
