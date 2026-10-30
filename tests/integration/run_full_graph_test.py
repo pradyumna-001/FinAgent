@@ -10,9 +10,11 @@ from unittest.mock import AsyncMock, patch
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-# Set environment variables before importing app modules
-os.environ["MIGRATION_DATABASE_URL"] = "postgresql+psycopg://finagent:password@localhost:5434/finagent"
-os.environ["DATABASE_URL"] = "postgresql+asyncpg://finagent:password@localhost:5434/finagent"
+# Use environment variables for DB URLs (set in CI), default to local PostgreSQL on 5434
+migration_db_url = os.environ.get("MIGRATION_DATABASE_URL", "postgresql+psycopg://finagent:password@localhost:5434/finagent")
+db_url = os.environ.get("DATABASE_URL", "postgresql+asyncpg://finagent:password@localhost:5434/finagent")
+os.environ["MIGRATION_DATABASE_URL"] = migration_db_url
+os.environ["DATABASE_URL"] = db_url
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
