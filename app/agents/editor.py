@@ -24,7 +24,7 @@ async def editor_agent_node(state: AgentState) -> dict:
         }
     )
 
-    new_flags = []
+    new_flags: list[DataFlag] = []
 
     # Normalize flags from state (handles both DataFlag objects and dicts from reducers)
     raw_flags = state.get("flags", [])
@@ -188,7 +188,6 @@ async def editor_agent_node(state: AgentState) -> dict:
             morning_note_sections.append(f"### {t}\n\n{note_section}")
         else:
             # Ticker failed - add placeholder to maintain structure
-            recommendations[t] = None
             confidence_scores[t] = {}
             morning_note_sections.append(f"### {t}\n\n[Dados indisponíveis para {t}]")
 

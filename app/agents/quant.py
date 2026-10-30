@@ -53,6 +53,9 @@ async def quant_agent_node(state: AgentState) -> dict:
                 "flags": new_flags
             }
 
+    # ticker is guaranteed to be str here
+    assert ticker is not None
+
     try:
         yfinance_service = YfinanceService(ticker=ticker)
     except YfinanceError as exc:
