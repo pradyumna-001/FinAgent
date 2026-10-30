@@ -33,22 +33,24 @@ async def risk_agent_node(state: AgentState) -> dict:
         }
     )
 
-    tickers = state.get("company_tickers", [])
-    if not tickers:
-        new_flags = [
-            DataFlag(
-                source="risk",
-                severity=Severity.FATAL,
-                message="No company_tickers in state"
-            )
-        ]
-        return {
-            "risk_flags": {},
-            "data_freshness": {"risk": datetime.now(UTC)},
-            "flags": new_flags
-        }
-
-    ticker = tickers[0]
+    ticker = state.get("current_ticker")
+    if ticker is None:
+        # Fallback for direct calls / legacy path / tests
+        tickers = state.get("company_tickers", [])
+        ticker = tickers[0] if tickers else None
+        if ticker is None:
+            new_flags = [
+                DataFlag(
+                    source="risk",
+                    severity=Severity.FATAL,
+                    message="No ticker available (current_ticker missing and company_tickers empty)"
+                )
+            ]
+            return {
+                "risk_flags": {},
+                "data_freshness": {"risk": datetime.now(UTC)},
+                "flags": new_flags
+            }
 
     user_prompt = RISK_PROMPTS.build_user_prompt(
         macro_context=state.get("macro_context", {}).get("global"),

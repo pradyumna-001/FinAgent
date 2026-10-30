@@ -34,22 +34,25 @@ async def quant_agent_node(state: AgentState) -> dict:
 
     new_flags = []
 
-    tickers = state.get("company_tickers", [])
-    if not tickers:
-        new_flags.append(
-            DataFlag(
-                source="quant",
-                severity=Severity.FATAL,
-                message="No company_tickers in state"
+    ticker = state.get("current_ticker")
+    if ticker is None:
+        # Fallback for direct calls / legacy path / tests
+        tickers = state.get("company_tickers", [])
+        ticker = tickers[0] if tickers else None
+        if ticker is None:
+            new_flags.append(
+                DataFlag(
+                    source="quant",
+                    severity=Severity.FATAL,
+                    message="No ticker available (current_ticker missing and company_tickers empty)"
+                )
             )
-        )
-        return {
-            "quant_metrics": {},
-            "data_freshness": {"quant": datetime.now(UTC)},
-            "flags": new_flags
-        }
+            return {
+                "quant_metrics": {},
+                "data_freshness": {"quant": datetime.now(UTC)},
+                "flags": new_flags
+            }
 
-    ticker = tickers[0]
     try:
         yfinance_service = YfinanceService(ticker=ticker)
     except YfinanceError as exc:
