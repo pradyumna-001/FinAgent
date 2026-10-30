@@ -52,6 +52,9 @@ async def risk_agent_node(state: AgentState) -> dict:
                 "flags": new_flags
             }
 
+    # ticker is guaranteed to be str here
+    assert ticker is not None
+
     user_prompt = RISK_PROMPTS.build_user_prompt(
         macro_context=state.get("macro_context", {}).get("global"),
         company_events=state.get("company_events", {}).get(ticker, []),
