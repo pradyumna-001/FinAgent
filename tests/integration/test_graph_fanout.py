@@ -4,24 +4,21 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import END, START, StateGraph
+from langgraph.types import Send
 from sqlalchemy import insert
 
+from app.agents.company import company_agent_node
+from app.agents.consolidate import consolidate_node
+from app.agents.editor import editor_agent_node
+from app.agents.macro import macro_agent_node
+from app.agents.quant import quant_agent_node
+from app.agents.risk import risk_agent_node
 from app.db.models import Company, Manager, Portfolio, PortfolioHolding
 from app.db.session import SessionLocal
 from app.graph.serialization import get_serializer
 from app.graph.state import AgentState, InvalidStateError, create_initial_state_multi
-from app.agents.approval_gate import approval_gate_node
-from app.agents.company import company_agent_node
-from app.agents.consolidate import consolidate_node
-from app.agents.editor import editor_agent_node
-from app.agents.finalize import finalize_morning_note_node
-from app.agents.macro import macro_agent_node
-from app.agents.quant import quant_agent_node
-from app.agents.risk import risk_agent_node
-from app.agents.send import send_note_node
-from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.graph import END, START, StateGraph
-from langgraph.types import Send
 
 
 def fan_out_company(state: AgentState) -> list[Send]:

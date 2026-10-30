@@ -4,7 +4,7 @@
 import asyncio
 import os
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 # Add project root to path
@@ -14,24 +14,21 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 os.environ["MIGRATION_DATABASE_URL"] = "postgresql+psycopg://finagent:password@localhost:5434/finagent"
 os.environ["DATABASE_URL"] = "postgresql+asyncpg://finagent:password@localhost:5434/finagent"
 
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import END, START, StateGraph
+from langgraph.types import Send
 from sqlalchemy import delete, insert
 
+from app.agents.company import company_agent_node
+from app.agents.consolidate import consolidate_node
+from app.agents.editor import editor_agent_node
+from app.agents.macro import macro_agent_node
+from app.agents.quant import quant_agent_node
+from app.agents.risk import risk_agent_node
 from app.db.models import Company, Manager, Portfolio, PortfolioHolding
 from app.db.session import SessionLocal
 from app.graph.serialization import get_serializer
 from app.graph.state import AgentState, InvalidStateError, create_initial_state_multi
-from app.agents.approval_gate import approval_gate_node
-from app.agents.company import company_agent_node
-from app.agents.consolidate import consolidate_node
-from app.agents.editor import editor_agent_node
-from app.agents.finalize import finalize_morning_note_node
-from app.agents.macro import macro_agent_node
-from app.agents.quant import quant_agent_node
-from app.agents.risk import risk_agent_node
-from app.agents.send import send_note_node
-from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.graph import END, START, StateGraph
-from langgraph.types import Send
 
 
 async def setup_test_data():
@@ -63,7 +60,7 @@ async def setup_single_ticker_test_data():
         await session.execute(delete(Portfolio).where(Portfolio.id.in_([999, 998])))
         await session.execute(delete(Company).where(Company.ticker.in_(["PETR4", "VALE3", "ITUB4"])))
         await session.execute(delete(Manager).where(Manager.id.in_([999, 998])))
-        
+
         await session.execute(insert(Manager).values(id=998, name="Test Manager 2", email="test2@test.com", password_hash="hash"))
         await session.execute(insert(Company).values(id=10, ticker="PETR4", name="Petrobras", sector="Energy"))
         await session.execute(insert(Portfolio).values(id=998, manager_id=998, name="Test Portfolio 2"))
