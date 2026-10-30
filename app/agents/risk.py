@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime
+from typing import cast
 
 from app.graph.state import AgentState
 from app.prompts.risk import RISK_PROMPTS
@@ -33,10 +34,30 @@ async def risk_agent_node(state: AgentState) -> dict:
         }
     )
 
+    ticker = cast(str, state.get("current_ticker"))
+    if ticker is None:
+        # Fallback for direct calls / legacy path / tests
+        tickers = state.get("company_tickers", [])
+        ticker = tickers[0] if tickers else None
+        if ticker is None:
+            new_flags = [
+                DataFlag(
+                    source="risk",
+                    severity=Severity.FATAL,
+                    message="No ticker available (current_ticker missing and company_tickers empty)"
+                )
+            ]
+            return {
+                "risk_flags": {},
+                "data_freshness": {"risk": datetime.now(UTC)},
+                "flags": new_flags
+            }
+
+
     user_prompt = RISK_PROMPTS.build_user_prompt(
-        macro_context=state.get("macro_context"),
-        company_events=state.get("company_events", []),
-        quant_metrics=state.get("quant_metrics"),
+        macro_context=state.get("macro_context", {}).get("global"),
+        company_events=state.get("company_events", {}).get(ticker, []),
+        quant_metrics=state.get("quant_metrics", {}).get(ticker),
         data_flags=state.get("flags", [])
     )
 
@@ -67,7 +88,7 @@ async def risk_agent_node(state: AgentState) -> dict:
         }
     )
     return {
-        "risk_flags": flags,
-        "data_freshness": {"risk": datetime.now(UTC)},
+        "risk_flags": {ticker: flags},
+        "data_freshness": {ticker: datetime.now(UTC)},
         "flags": new_flags
     }

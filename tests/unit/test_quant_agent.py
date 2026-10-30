@@ -40,11 +40,11 @@ async def test_quant_agent_happy_path():
         MockSvc.return_value.search = AsyncMock(return_value=result)
         res = await quant_agent_node(make_state())
 
-    qm = res["quant_metrics"]
+    qm = res["quant_metrics"]["PETR4"]
 
     assert qm["pl"] == 15.2
     assert qm["dev_ibov"] == 0.08
-    assert isinstance(res["data_freshness"]["quant"], datetime)
+    assert isinstance(res["data_freshness"]["PETR4"], datetime)
     assert res["flags"] == []
 
 
@@ -60,9 +60,9 @@ async def test_quant_agent_service_warning():
         MockSvc.return_value.search = AsyncMock(return_value=result)
         res = await quant_agent_node(make_state())
 
-    assert res["quant_metrics"] is None
+    assert res["quant_metrics"]["PETR4"] is None
     assert res["flags"][-1].source == "yfinance"
-    assert isinstance(res["data_freshness"]["quant"], datetime)
+    assert isinstance(res["data_freshness"]["PETR4"], datetime)
 
 
 @pytest.mark.asyncio
@@ -77,7 +77,7 @@ async def test_quant_agent_service_fatal():
         MockSvc.return_value.search = AsyncMock(return_value=result)
         res = await quant_agent_node(make_state())
 
-    assert res["quant_metrics"] is None
+    assert res["quant_metrics"]["PETR4"] is None
     assert res["flags"][-1].severity.value == "fatal"
 
 
@@ -87,7 +87,7 @@ async def test_quant_agent_empty_ticker():
     with patch("app.agents.quant.YfinanceService", side_effect=YfinanceError("ticker must be non-empty")):
         res = await quant_agent_node(make_state())
 
-    assert res["quant_metrics"] is None
+    assert res["quant_metrics"]["PETR4"] is None
     assert res["flags"][-1].severity.value == "fatal"
     assert "ticker must be non-empty" in res["flags"][-1].message
 
@@ -100,11 +100,11 @@ async def test_quant_agent_logs_entry(caplog):
             MockSvc.return_value.search = AsyncMock(return_value=result)
             await quant_agent_node(make_state())
 
-        records = [r for r in caplog.records if r.name == "app.agents.quant"]
-        assert len(records) >= 1
-        assert records[0].pipeline_run_id == "run-1"
-        assert records[0].morning_note_id == "note-1"
-        assert records[0].manager_id == 1
+    records = [r for r in caplog.records if r.name == "app.agents.quant"]
+    assert len(records) >= 1
+    assert records[0].pipeline_run_id == "run-1"
+    assert records[0].morning_note_id == "note-1"
+    assert records[0].manager_id == 1
 
 
 @pytest.mark.asyncio
@@ -115,7 +115,7 @@ async def test_quant_agent_market_time_populated_from_metrics():
         MockSvc.return_value.search = AsyncMock(return_value=result)
         res = await quant_agent_node(make_state())
 
-    assert res["quant_metrics"]["market_time"] == market_time
+    assert res["quant_metrics"]["PETR4"]["market_time"] == market_time
 
 
 @pytest.mark.asyncio
@@ -126,4 +126,4 @@ async def test_quant_agent_data_freshness_uses_data_time_when_present():
         MockSvc.return_value.search = AsyncMock(return_value=result)
         res = await quant_agent_node(make_state())
 
-    assert res["data_freshness"]["quant"] == market_time
+    assert res["data_freshness"]["PETR4"] == market_time

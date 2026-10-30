@@ -26,6 +26,7 @@ from app.graph.state import (  # noqa: E402
     AgentState,
     InvalidStateError,
     create_initial_state,
+    create_initial_state_multi,
 )
 from app.services.sse import sse_service  # noqa: E402
 from app.services.tavily import TavilyArticle, TavilyResult  # noqa: E402
@@ -332,18 +333,18 @@ async def test_sse_note_ready_after_editor(test_graph, patched_services):
 
 @pytest.mark.asyncio
 async def test_sse_pipeline_failed_on_error(test_graph):
-    """Test that pipeline_failed event is emitted with flags on error."""
+    """Test that note_ready is emitted with error message in morning_note on editor failure."""
     pipeline_run_id = "test-run-failed-123"
     morning_note_id = "test-note-failed-123"
 
-    state = create_initial_state(
+    state = create_initial_state_multi(
         manager_id=1,
-        company_ticker="PETR4",
+        company_tickers=["PETR4"],
         pipeline_run_id=pipeline_run_id,
         morning_note_id=morning_note_id
     )
 
-# Mock to make EDITOR fail (summarize_nemotron returns None)
+    # Mock to make EDITOR fail (summarize_nemotron returns None)
     with (
         patch("app.agents.macro.TavilyService") as MacroT,
         patch("app.agents.company.TavilyService") as CompT,
@@ -388,22 +389,13 @@ async def test_sse_pipeline_failed_on_error(test_graph):
         event_types = [e["event_type"] for e in events]
         print(f"Events emitted: {event_types}")
 
-        # Should have pipeline_failed event (not note_ready)
-        pipeline_failed = next((e for e in events if e["event_type"] == "pipeline_failed"), None)
-        assert pipeline_failed is not None, f"pipeline_failed event should be emitted. Got: {event_types}"
-
-        # Should have flags array
-        assert "flags" in pipeline_failed
-        assert len(pipeline_failed["flags"]) > 0
-
-        # First flag should be the editor error
-        first_flag = pipeline_failed["flags"][0]
-        assert first_flag["source"] == "summarize_nemotron"
-        assert first_flag["severity"] == "fatal"
-
-        # Should NOT have note_ready
+        # Should have note_ready event (even on failure, with error message in morning_note)
         note_ready = next((e for e in events if e["event_type"] == "note_ready"), None)
-        assert note_ready is None, "note_ready should not be emitted on pipeline failure"
+        assert note_ready is not None, f"note_ready event should be emitted on failure. Got: {event_types}"
+
+        # Should NOT have pipeline_failed (new behavior: always note_ready)
+        pipeline_failed = next((e for e in events if e["event_type"] == "pipeline_failed"), None)
+        assert pipeline_failed is None, "pipeline_failed should not be emitted in new architecture"
 
 
 @pytest.mark.asyncio

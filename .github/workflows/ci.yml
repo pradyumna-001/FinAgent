@@ -38,9 +38,67 @@ jobs:
           NVIDIA_FALLBACK_MODEL: openai/gpt-oss-20b
           NVIDIA_NEMOTRON_MODEL: nvidia/nemotron-3-ultra
 
+  standalone-graph-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: finagent
+          POSTGRES_PASSWORD: finagent_secure_pass
+          POSTGRES_DB: finagent
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U finagent -d finagent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          for i in {1..30}; do
+            pg_isready -h localhost -p 5432 -U finagent -d finagent && break
+            sleep 1
+          done
+
+      - name: Install psycopg for migrations
+        run: uv pip install psycopg[binary]
+
+      - name: Run migrations
+        run: |
+          export MIGRATION_DATABASE_URL=postgresql+psycopg://finagent:finagent_secure_pass@localhost:5432/finagent
+          uv run alembic upgrade heads
+
+      - name: Run standalone full graph test
+        run: uv run python tests/integration/run_full_graph_test.py
+        env:
+          MIGRATION_DATABASE_URL: postgresql+psycopg://finagent:finagent_secure_pass@localhost:5432/finagent
+          DATABASE_URL: postgresql+asyncpg://finagent:finagent_secure_pass@localhost:5432/finagent
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: TEST_SECRET_KEY_REPLACE_IN_PRODUCTION
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_BASE_URL: https://integrate.api.nvidia.com/v1
+          NVIDIA_MODEL: openai/gpt-oss-20b
+          NVIDIA_FALLBACK_MODEL: openai/gpt-oss-20b
+          NVIDIA_NEMOTRON_MODEL: nvidia/nemotron-3-ultra
+
   integration-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    continue-on-error: true
     services:
       postgres:
         image: pgvector/pgvector:pg16

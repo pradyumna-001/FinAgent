@@ -58,7 +58,7 @@ async def macro_agent_node(state: AgentState) -> dict:
             }
         )
         return {
-            "macro_context": None,
+            "macro_context": {"global": None},
             "data_freshness": {"macro": datetime.now(UTC)},
             "flags": new_flags
         }
@@ -86,7 +86,7 @@ async def macro_agent_node(state: AgentState) -> dict:
         )
         new_flags.append(result.error)
         return {
-            "macro_context": None,
+            "macro_context": {"global": None},
             "data_freshness": {"macro": datetime.now(UTC)},
             "flags": new_flags
         }
@@ -128,9 +128,8 @@ async def macro_agent_node(state: AgentState) -> dict:
             fetched_at=datetime.now(UTC).isoformat()
         )
 
-
     return {
-        "macro_context": macro_output,
+        "macro_context": {"global": macro_output},
         "data_freshness": {"macro": datetime.now(UTC)},
         "flags": new_flags
     }

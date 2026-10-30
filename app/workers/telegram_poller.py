@@ -7,7 +7,7 @@ from telegram import Bot, Message
 from telegram.error import TelegramError
 
 from app.core.config import settings
-from app.db.session import engine
+from app.db.session import engine as get_engine
 from app.graph.pipeline import compile_graph
 from app.services.channels.telegram_channel import decode_callback
 from app.services.decisions import decision_key, handle_decision
@@ -30,7 +30,7 @@ async def telegram_polling_loop() -> DataFlag:
     redis = Redis.from_url(settings.REDIS_URL, decode_responses=False)
 
     seen_key = "telegram:seen_update_ids"
-    dsn = str(engine.url).replace("postgresql+asyncpg://", "postgresql://")
+    dsn = str(get_engine().url).replace("postgresql+asyncpg://", "postgresql://")
 
     async with AsyncPostgresSaver.from_conn_string(dsn) as saver:
         await saver.setup()

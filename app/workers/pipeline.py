@@ -11,7 +11,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from app.core.config import settings
 from app.core.context import current_pipeline_run_id
-from app.db.session import engine
+from app.db.session import engine as get_engine
 from app.graph.pipeline import compile_graph
 from app.graph.state import create_initial_state
 from app.workers.exceptions import WorkerNotInitializedError
@@ -70,7 +70,7 @@ def init_pipeline_resources(**kwargs):
     async def _open():
         global _saver_cm, _saver
 
-        dsn = str(engine.url).replace("postgresql+asyncpg://", "postgresql://")
+        dsn = str(get_engine().url).replace("postgresql+asyncpg://", "postgresql://")
         _saver_cm = AsyncPostgresSaver.from_conn_string(dsn)
         _saver = await _saver_cm.__aenter__()
         await _saver.setup()

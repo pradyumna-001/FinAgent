@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime
+from typing import cast
 
 from app.graph.state import AgentState, QuantOutput
 from app.services.sse import sse_service
@@ -34,8 +35,28 @@ async def quant_agent_node(state: AgentState) -> dict:
 
     new_flags = []
 
+    ticker = cast(str, state.get("current_ticker"))
+    if ticker is None:
+        # Fallback for direct calls / legacy path / tests
+        tickers = state.get("company_tickers", [])
+        ticker = tickers[0] if tickers else None
+        if ticker is None:
+            new_flags.append(
+                DataFlag(
+                    source="quant",
+                    severity=Severity.FATAL,
+                    message="No ticker available (current_ticker missing and company_tickers empty)"
+                )
+            )
+            return {
+                "quant_metrics": {},
+                "data_freshness": {"quant": datetime.now(UTC)},
+                "flags": new_flags
+            }
+
+
     try:
-        yfinance_service = YfinanceService(ticker=state["company_ticker"])
+        yfinance_service = YfinanceService(ticker=ticker)
     except YfinanceError as exc:
         new_flags.append(
             DataFlag(
@@ -55,8 +76,8 @@ async def quant_agent_node(state: AgentState) -> dict:
             }
         )
         return {
-            "quant_metrics": None,
-            "data_freshness": {"quant": datetime.now(UTC)},
+            "quant_metrics": {ticker: None},
+            "data_freshness": {ticker: datetime.now(UTC)},
             "flags": new_flags
         }
 
@@ -74,8 +95,8 @@ async def quant_agent_node(state: AgentState) -> dict:
             }
         )
         return {
-            "quant_metrics": None,
-            "data_freshness": {"quant": datetime.now(UTC)},
+            "quant_metrics": {ticker: None},
+            "data_freshness": {ticker: datetime.now(UTC)},
             "flags": new_flags
         }
 
@@ -102,9 +123,9 @@ async def quant_agent_node(state: AgentState) -> dict:
         }
     )
     return {
-        "quant_metrics": quant_metrics,
+        "quant_metrics": {ticker: quant_metrics},
         "data_freshness": {
-            "quant": (
+            ticker: (
                 result.metrics.market_time
                 if result.metrics.market_time is not None
                 else datetime.now(UTC)

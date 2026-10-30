@@ -5,16 +5,16 @@ import pytest
 from app.agents.company import company_agent_node
 from app.agents.macro import macro_agent_node
 from app.agents.quant import quant_agent_node
-from app.graph.state import DataFlag, create_initial_state
+from app.graph.state import DataFlag, create_initial_state_multi
 from app.services.tavily import TavilyResult
 from app.services.yfinance import YfinanceResult
 from app.utils.flags import Severity
 
 
 def make_state():
-    return create_initial_state(
+    return create_initial_state_multi(
         manager_id=1,
-        company_ticker="PETR4",
+        company_tickers=["PETR4"],
         pipeline_run_id="run-1",
         morning_note_id="note-1"
     )
@@ -43,7 +43,7 @@ async def test_pipeline_all_agents_fail_shares_state():
          patch("app.agents.macro.summarize", new=AsyncMock(return_value="")):
         M.return_value.search = AsyncMock(return_value=TavilyResult(articles=[], error=err))
         merge_result(state, await macro_agent_node(state))
-    assert state["macro_context"] is None
+    assert state["macro_context"] == {"global": None}
     assert len(state["flags"]) == 1
     assert "macro" in state["data_freshness"]
 
@@ -51,9 +51,9 @@ async def test_pipeline_all_agents_fail_shares_state():
          patch("app.agents.company.summarize", new=AsyncMock(return_value="")):
         C.return_value.search = AsyncMock(return_value=TavilyResult(articles=[], error=err))
         merge_result(state, await company_agent_node(state))
-    assert state["company_events"] == []
+    assert state["company_events"] == {"PETR4": []}
     assert len(state["flags"]) == 2
-    assert "company" in state["data_freshness"]
+    assert "PETR4" in state["data_freshness"]
 
     stale_err = DataFlag(
         source="yfinance",
@@ -63,12 +63,12 @@ async def test_pipeline_all_agents_fail_shares_state():
     with patch("app.agents.quant.YfinanceService") as Q:
         Q.return_value.search = AsyncMock(return_value=YfinanceResult(metrics=None, error=stale_err))
         merge_result(state, await quant_agent_node(state))
-    assert state["quant_metrics"] is None
+    assert state["quant_metrics"] == {"PETR4": None}
     assert state["flags"][-1].source == "yfinance"
     assert "48" in state["flags"][-1].message
-    assert state["data_freshness"]["quant"] is not None
+    assert "PETR4" in state["data_freshness"]
 
     assert len(state["flags"]) == 3
-    assert set(state["data_freshness"]) == {"macro", "company", "quant"}
+    assert set(state["data_freshness"]) == {"macro", "PETR4"}
     assert state["manager_id"] == 1
-    assert state["company_ticker"] == "PETR4"
+    assert state["company_tickers"] == ["PETR4"]

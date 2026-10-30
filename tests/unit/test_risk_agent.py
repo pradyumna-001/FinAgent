@@ -25,13 +25,13 @@ async def test_risk_agent_happy_path() -> None:
             '"description": "Market crash risk", "severity": "warning"}]'
         )
         state = await risk_agent_node(make_state())
-        assert len(state["risk_flags"]) >= 1
-        rf = state["risk_flags"][0]
+        assert len(state["risk_flags"]["PETR4"]) >= 1
+        rf = state["risk_flags"]["PETR4"][0]
         assert rf["probability"] == 0.7
         assert rf["impact"] == "high"
         assert rf["description"] == "Market crash risk"
         assert rf["severity"] == Severity.WARNING
-        assert state["data_freshness"]["risk"] is not None
+        assert state["data_freshness"]["PETR4"] is not None
 
 
 @pytest.mark.asyncio
@@ -43,4 +43,4 @@ async def test_risk_agent_no_raw_text_dataflag() -> None:
         assert state["flags"][-1].source == "risk_parse"
         assert state["flags"][-1].severity == Severity.WARNING
         assert "risk flag(s) dropped" in state["flags"][-1].message
-        assert len(state["risk_flags"]) == 0
+        assert len(state["risk_flags"]["PETR4"]) == 0
