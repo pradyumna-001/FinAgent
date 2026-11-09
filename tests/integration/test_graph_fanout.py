@@ -172,7 +172,7 @@ async def _build_test_graph(SessionLocal):
 
 
 # Common mock return value for editor
-EDITOR_MOCK_RETURN = '{"morning_note": "Test note", "recommendation": {"action": "buy", "justification": "Test", "confidence": 0.8}, "confidence_scores": {"macro": 0.8, "company": 0.7, "quant": 0.9, "risk": 0.6, "overall": 0.75}}'
+EDITOR_MOCK_RETURN = '{"morning_note": "Test note for PETR4", "recommendations": {"PETR4": {"action": "buy", "justification": "Test", "confidence": 0.8}}, "confidence_scores": {"PETR4": {"macro": 0.8, "company": 0.7, "quant": 0.9, "risk": 0.6, "overall": 0.75}}}'
 
 
 @pytest.mark.asyncio
