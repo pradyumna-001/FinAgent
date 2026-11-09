@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 from datetime import UTC, datetime
@@ -26,7 +25,6 @@ async def editor_agent_node(state: AgentState) -> dict:
 
     new_flags: list[DataFlag] = []
 
-    # Normalize flags from state (handles both DataFlag objects and dicts from reducers)
     raw_flags = state.get("flags", [])
     for f in raw_flags:
         if isinstance(f, DataFlag):
@@ -47,7 +45,6 @@ async def editor_agent_node(state: AgentState) -> dict:
 
     tickers = state.get("company_tickers", [])
 
-    # If no tickers, return empty but valid state
     if not tickers:
         confidence = state["confidence_scores"].get("editor", 1.0)
         await sse_service.emit_event(
@@ -86,126 +83,181 @@ async def editor_agent_node(state: AgentState) -> dict:
         }
     )
 
-    # Semaphore for rate limiting concurrent LLM calls
-    MAX_CONCURRENT = 3
-    semaphore = asyncio.Semaphore(MAX_CONCURRENT)
+    data_flags = [f for f in new_flags if isinstance(f, DataFlag)]
+    
+    user_prompt = EDITOR_PROMPTS.build_user_prompt(
+        macro_context=state.get("macro_context", {}),
+        company_tickers=tickers,
+        company_events=state.get("company_events", {}),
+        quant_metrics=state.get("quant_metrics", {}),
+        risk_flags=state.get("risk_flags", {}),
+        portfolio_risk_flags=state.get("portfolio_risk_flags", []),
+        portfolio_data_flags=state.get("portfolio_data_flags", []),
+        sector_weights=state.get("sector_weights", {}),
+        data_flags=data_flags,
+        data_freshness=state.get("data_freshness", {})
+    )
 
-    async def process_ticker(t: str) -> tuple[str, dict | None, dict[str, float] | None, str | None, list[DataFlag]]:
-        """Process a single ticker: build prompt, call LLM, parse, return structured result."""
-        local_flags = []
+    raw_text = await summarize_nemotron(
+        system=EDITOR_PROMPTS.system,
+        user=user_prompt
+    )
 
-        # Build single-ticker prompt from dict-keyed state
-        user_prompt = EDITOR_PROMPTS.build_user_prompt(
-            macro_context=state.get("macro_context", {}).get("global"),
-            company_events=state.get("company_events", {}).get(t, []),
-            quant_metrics=state.get("quant_metrics", {}).get(t),
-            risk_flags=state.get("risk_flags", {}).get(t, []),
-            data_flags=new_flags
+    if raw_text is None:
+        new_flags.append(
+            DataFlag(
+                source="summarize_nemotron",
+                severity=Severity.FATAL,
+                message="Summarization failed for editor"
+            )
+        )
+        recommendations: dict[str, dict] = {}
+        confidence_scores: dict[str, dict[str, float]] = {}
+        morning_note_sections: list[str] = []
+        
+        for t in tickers:
+            recommendations[t] = {}
+            confidence_scores[t] = {}
+            morning_note_sections.append(f"### {t}\n\n[Dados indisponíveis para {t}]")
+        
+        morning_note = "\n\n".join(morning_note_sections)
+        all_new_flags = list(new_flags)
+        penalized_confidence_scores, all_warnings = apply_confidence_penalties(confidence_scores, all_new_flags)
+        
+        if all_warnings:
+            morning_note = "\n\n".join(all_warnings) + "\n\n" + morning_note
+        
+        confidence = state["confidence_scores"].get("editor", 1.0)
+        
+        await sse_service.emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "agent_completed",
+                "agent_name": "editor",
+                "confidence_score": confidence,
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
+        await sse_service.emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "note_ready",
+                "morning_note_id": state["morning_note_id"],
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
+        
+        sse_service.cleanup(state["pipeline_run_id"])
+        
+        return {
+            "morning_note": morning_note,
+            "recommendations": recommendations,
+            "confidence_scores": penalized_confidence_scores,
+            "data_freshness": {"editor": datetime.now(UTC)},
+            "flags": all_new_flags
+        }
+
+    try:
+        parsed = json.loads(raw_text)
+    except json.JSONDecodeError:
+        new_flags.append(
+            DataFlag(
+                source="editor_parse",
+                severity=Severity.WARNING,
+                message="Failed to parse EditorAgent JSON response"
+            )
+        )
+        
+        recommendations: dict[str, dict] = {}
+        confidence_scores: dict[str, dict[str, float]] = {}
+        morning_note_sections: list[str] = []
+        
+        for t in tickers:
+            recommendations[t] = {}
+            confidence_scores[t] = {}
+            morning_note_sections.append(f"### {t}\n\n[Dados indisponíveis para {t}]")
+        
+        morning_note = "\n\n".join(morning_note_sections)
+        all_new_flags = list(new_flags)
+        penalized_confidence_scores, all_warnings = apply_confidence_penalties(confidence_scores, all_new_flags)
+        
+        if all_warnings:
+            morning_note = "\n\n".join(all_warnings) + "\n\n" + morning_note
+        
+        confidence = state["confidence_scores"].get("editor", 1.0)
+        
+        await sse_service.emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "agent_completed",
+                "agent_name": "editor",
+                "confidence_score": confidence,
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
+        
+        await sse_service.emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "note_ready",
+                "morning_note_id": state["morning_note_id"],
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
+        
+        sse_service.cleanup(state["pipeline_run_id"])
+        
+        return {
+            "morning_note": morning_note,
+            "recommendations": recommendations,
+            "confidence_scores": penalized_confidence_scores,
+            "data_freshness": {"editor": datetime.now(UTC)},
+            "flags": all_new_flags
+        }
+
+    missing_tickers: list[str] = []
+    for t in tickers:
+        if t not in parsed.get("recommendations", {}):
+            missing_tickers.append(t)
+        if t not in parsed.get("confidence_scores", {}):
+            if t not in missing_tickers:
+                missing_tickers.append(t)
+
+    if missing_tickers:
+        new_flags.append(
+            DataFlag(
+                source="editor_parse",
+                severity=Severity.WARNING,
+                message=f"Missing recommendations/confidence_scores for tickers: {', '.join(missing_tickers)}"
+            )
         )
 
-        async with semaphore:
-            raw_text = await summarize_nemotron(
-                system=EDITOR_PROMPTS.system,
-                user=user_prompt
-            )
-
-        if raw_text is None:
-            local_flags.append(
-                DataFlag(
-                    source="summarize_nemotron",
-                    severity=Severity.FATAL,
-                    message=f"Summarization failed for {t}"
-                )
-            )
-            return t, None, None, None, local_flags
-
-        try:
-            parsed = json.loads(raw_text)
-        except json.JSONDecodeError:
-            local_flags.append(
-                DataFlag(
-                    source="editor_parse",
-                    severity=Severity.WARNING,
-                    message=f"Failed to parse EditorAgent JSON response for {t}"
-                )
-            )
-            return t, None, None, None, local_flags
-
-        # Validate parsed response
-        if not (parsed.get("morning_note") is not None and
-                parsed.get("recommendation") is not None and
-                parsed.get("confidence_scores") is not None):
-            local_flags.append(
-                DataFlag(
-                    source="editor_parse",
-                    severity=Severity.WARNING,
-                    message=f"Missing keys in EditorAgent response for {t}"
-                )
-            )
-            return t, None, None, None, local_flags
-
-        is_morning_note = isinstance(parsed["morning_note"], str)
-        is_recommendation = (
-            isinstance(parsed["recommendation"], dict) and
-            set(parsed["recommendation"].keys()) == {"action", "justification", "confidence"} and
-            parsed["recommendation"]["action"] in ("buy", "sell", "keep") and
-            isinstance(parsed["recommendation"]["justification"], str) and
-            isinstance(parsed["recommendation"]["confidence"], float)
-        )
-        is_confidence_scores = (
-            isinstance(parsed["confidence_scores"], dict) and
-            all(isinstance(v, float) for v in parsed["confidence_scores"].values()) and
-            set(parsed["confidence_scores"].keys()) == {"macro", "company", "quant", "risk", "overall"}
-        )
-
-        if not (is_morning_note and is_recommendation and is_confidence_scores):
-            local_flags.append(
-                DataFlag(
-                    source="editor_parse",
-                    severity=Severity.WARNING,
-                    message=f"Invalid structure in EditorAgent response for {t}"
-                )
-            )
-            return t, None, None, None, local_flags
-
-        return t, parsed["recommendation"], parsed["confidence_scores"], parsed["morning_note"], local_flags
-
-    # Process all tickers concurrently with semaphore
-    results = await asyncio.gather(*[process_ticker(t) for t in tickers])
-
-    # Aggregate results
     recommendations: dict[str, dict] = {}
     confidence_scores: dict[str, dict[str, float]] = {}
     morning_note_sections: list[str] = []
-    all_new_flags = list(new_flags)  # start with flags from flag normalization
 
-    for t, rec, conf, note_section, flags in results:
-        all_new_flags.extend(flags)
-        if rec is not None and conf is not None and note_section is not None:
-            recommendations[t] = rec
-            confidence_scores[t] = conf
-            morning_note_sections.append(f"### {t}\n\n{note_section}")
+    for t in tickers:
+        if t in parsed.get("recommendations", {}) and t in parsed.get("confidence_scores", {}):
+            recommendations[t] = parsed["recommendations"][t]
+            confidence_scores[t] = parsed["confidence_scores"][t]
         else:
-            # Ticker failed - add placeholder to maintain structure
+            recommendations[t] = {}
             confidence_scores[t] = {}
             morning_note_sections.append(f"### {t}\n\n[Dados indisponíveis para {t}]")
 
-    # Apply confidence penalties per ticker
-    penalized_confidence_scores: dict[str, dict[str, float]] = {}
-    all_warnings: list[str] = []
-    for t, conf in confidence_scores.items():
-        # Apply penalties even for empty dicts (failed tickers)
-            penalized, warnings = apply_confidence_penalties(conf, all_new_flags)
-            penalized_confidence_scores[t] = penalized
-            all_warnings.extend(warnings)
+    all_new_flags = list(new_flags)
 
-    # Build consolidated morning note
-    morning_note = "\n\n".join(morning_note_sections)
+    penalized_confidence_scores, all_warnings = apply_confidence_penalties(confidence_scores, all_new_flags)
+
+    morning_note = parsed.get("morning_note", "")
+    
+    if morning_note_sections:
+        morning_note = "\n\n".join(morning_note_sections) + "\n\n" + morning_note
     if all_warnings:
         morning_note = "\n\n".join(all_warnings) + "\n\n" + morning_note
 
-    # Emit completion events (once)
     confidence = state["confidence_scores"].get("editor", 1.0)
+    
     await sse_service.emit_event(
         state["pipeline_run_id"],
         {
@@ -215,6 +267,7 @@ async def editor_agent_node(state: AgentState) -> dict:
             "timestamp": datetime.now(UTC).isoformat()
         }
     )
+    
     await sse_service.emit_event(
         state["pipeline_run_id"],
         {
@@ -223,6 +276,7 @@ async def editor_agent_node(state: AgentState) -> dict:
             "timestamp": datetime.now(UTC).isoformat()
         }
     )
+    
     sse_service.cleanup(state["pipeline_run_id"])
 
     return {
