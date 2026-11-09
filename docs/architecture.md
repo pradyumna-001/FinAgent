@@ -405,8 +405,142 @@ flowchart TD
     ECS --> LS
 ```
 
+## Detailed Pipeline Architecture
+
+This diagram shows the complete end-to-end data flow through the FinAgent pipeline, from trigger to storage:
+
+```mermaid
+flowchart TB
+    %% External Triggers
+    subgraph TRIGGERS["External Triggers"]
+        CB[Celery Beat<br/>6:00 AM BRT<br/>Daily schedule]
+        API[API Call<br/>POST /trigger]
+        MT[Manual Trigger<br/>Dashboard]
+    end
+
+    CB --> API
+    API --> MT
+
+    %% FastAPI API Layer
+    subgraph API["FASTAPI API Layer"]
+        direction TB
+        FT[POST /pipeline/trigger<br/>202 + pipeline_run_id]
+        FM[GET /morning-notes?manager_id=X<br/>List notes]
+        FD[GET /morning-notes/id<br/>Full note detail]
+        FS[GET /morning-notes/id/stream<br/>SSE real-time events]
+        FF[POST /morning-notes/id/feedback<br/>Submit manager feedback]
+        FH[GET /health<br/>status db]
+    end
+
+    TRIGGERS --> API
+
+    %% Celery Worker
+    subgraph CW["CELERY WORKER POOL"]
+        direction TB
+        WF1[Fetch tickers<br/>from DB]
+        WF2[Create MorningNote<br/>status=pending]
+        WF3[Run LangGraph<br/>pipeline]
+        WF4[Update status<br/>completed/failed]
+    end
+
+    WF1 --> WF2
+    WF2 --> WF3
+    WF3 --> WF4
+
+    API --> CW
+
+    %% LangGraph Pipeline
+    subgraph LG["LANGGRAPH STATEGRAPH<br/>Multi-Ticker Pipeline"]
+        direction TB
+        MA[MacroAgent<br/>macro news<br/>runs ONCE per portfolio]
+
+        subgraph FO["Fan-out via Send API<br/>runs per ticker in parallel"]
+            CA[CompanyAgent<br/>Tavily company events]
+            QA[QuantAgent<br/>yfinance metrics]
+            RA[RiskAgent<br/>adversarial analysis]
+        end
+
+        CN[Consolidate Node<br/>sector weights<br/>concentration flags<br/>stale data flags]
+
+        EA[EditorAgent<br/>Nemotron 3 Ultra<br/>consolidated note<br/>per-ticker recommendations<br/>confidence scores]
+
+        END1((END))
+
+        MA --> FO
+        FO --> CN
+        CA --> CN
+        QA --> CN
+        RA --> CN
+        CN --> EA
+        EA --> END1
+    end
+
+    CW --> LG
+
+    %% Data Layer
+    subgraph DL["DATA LAYER"]
+        direction TB
+        PG[PostgreSQL 16 + pgvector<br/>+ PostgreSQL 18 + Apache AGE<br/>RLS enabled<br/>Morning notes, recommendations,<br/>companies, portfolios, holdings]
+        RD[Redis 7.2 + AOF<br/>Celery broker<br/>SSE pub/sub]
+    end
+
+    LG --> DL
+
+    %% Observability
+    subgraph OBS["OBSERVABILITY"]
+        CW2[CloudWatch<br/>logs + metrics<br/>alarms]
+        LS[LangSmith<br/>agent traces]
+    end
+
+    CW --> CW2
+    LG --> LS
+```
+
+## Agent Pipeline Detail
+
+This diagram shows the agent-level flow in detail — how each agent processes data and passes it to the next:
+
+```mermaid
+flowchart TB
+    subgraph Agents["Agent Pipeline Detail"]
+        direction TB
+        
+        %% Macro Agent
+        MA[MacroAgent<br/>Tavily search<br/>macro news<br/>Brazil]
+        
+        %% Fan-out per ticker
+        subgraph FO["Fan-out per ticker<br/>Send API"]
+            CA[CompanyAgent<br/>Tavily search<br/>company events]
+            QA[QuantAgent<br/>yfinance<br/>P/L, EV/EBITDA,<br/>P/VPA, dividend yield]
+            RA[RiskAgent<br/>NVIDIA NIM<br/>adversarial analysis<br/>risk flags]
+        end
+        
+        %% Consolidate
+        CN[Consolidate Node<br/>sector weights<br/>concentration flags<br/>stale data flags]
+        
+        %% Editor
+        EA[EditorAgent<br/>Nemotron 3 Ultra<br/>consolidated morning note<br/>per-ticker recommendations<br/>confidence scores]
+        
+        MA --> FO
+        CA --> CN
+        QA --> CN
+        RA --> CN
+        CN --> EA
+    end
+```
+
+### Agent Details
+
+| Agent | Input | Processing | Output |
+|-------|-------|------------|--------|
+| **MacroAgent** | Tavily (macro news Brazil) | NVIDIA NIM summarization | Macro context (headline, summary, sources) |
+| **CompanyAgent** | Tavily (per ticker) | NVIDIA NIM extraction | Company events (title, date, summary) |
+| **QuantAgent** | Yfinance (per ticker) | Python calculations | P/L, EV/EBITDA, P/VPA, dividend yield, dev_ibov |
+| **RiskAgent** | NVIDIA NIM (per ticker) | Adversarial analysis | Risk flags (probability, impact, description) |
+| **Consolidate Node** | All per-ticker outputs | Sector weights, concentration flags, stale data | Portfolio-level aggregations |
+| **EditorAgent** | All per-ticker outputs | Nemotron 3 Ultra synthesis | Consolidated morning note + recommendations |
+
 ### ECS Services
-| Service | Task Definition | Scaling |
 |---------|----------------|---------|
 | FastAPI | `finagent-api` | ALB target; 2–10 tasks |
 | Celery Worker | `finagent-worker` | Queue depth; 1–20 tasks |
