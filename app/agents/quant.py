@@ -1,7 +1,6 @@
 import logging
 from datetime import UTC, datetime
 
-
 from app.graph.state import AgentState, QuantOutput
 from app.services.sse import sse_service
 from app.services.yfinance import YfinanceError, YfinanceService

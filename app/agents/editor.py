@@ -95,7 +95,7 @@ async def editor_agent_node(state: AgentState) -> dict:
     )
 
     data_flags = [f for f in new_flags if isinstance(f, DataFlag)]
-    
+
     user_prompt = EDITOR_PROMPTS.build_user_prompt(
         macro_context=state.get("macro_context", {}),
         company_tickers=tickers,
@@ -125,21 +125,21 @@ async def editor_agent_node(state: AgentState) -> dict:
         recommendations: dict[str, dict] = {}
         confidence_scores: dict[str, dict[str, float]] = {}
         morning_note_sections: list[str] = []
-        
+
         for t in tickers:
             recommendations[t] = {}
             confidence_scores[t] = {}
             morning_note_sections.append(f"### {t}\n\n[Dados indisponíveis para {t}]")
-        
+
         morning_note = "\n\n".join(morning_note_sections)
         all_new_flags = list(new_flags)
         penalized_confidence_scores, all_warnings = apply_confidence_penalties(confidence_scores, all_new_flags)
-        
+
         if all_warnings:
             morning_note = "\n\n".join(all_warnings) + "\n\n" + morning_note
-        
+
         confidence = state["confidence_scores"].get("editor", 1.0)
-        
+
         await sse_service.emit_event(
             state["pipeline_run_id"],
             {
@@ -157,9 +157,9 @@ async def editor_agent_node(state: AgentState) -> dict:
                 "timestamp": datetime.now(UTC).isoformat()
             }
         )
-        
+
         sse_service.cleanup(state["pipeline_run_id"])
-        
+
         return {
             "morning_note": morning_note,
             "recommendations": recommendations,
@@ -178,25 +178,25 @@ async def editor_agent_node(state: AgentState) -> dict:
                 message="Failed to parse EditorAgent JSON response"
             )
         )
-        
+
         recommendations: dict[str, dict] = {}
         confidence_scores: dict[str, dict[str, float]] = {}
         morning_note_sections: list[str] = []
-        
+
         for t in tickers:
             recommendations[t] = {}
             confidence_scores[t] = {}
             morning_note_sections.append(f"### {t}\n\n[Dados indisponíveis para {t}]")
-        
+
         morning_note = "\n\n".join(morning_note_sections)
         all_new_flags = list(new_flags)
         penalized_confidence_scores, all_warnings = apply_confidence_penalties(confidence_scores, all_new_flags)
-        
+
         if all_warnings:
             morning_note = "\n\n".join(all_warnings) + "\n\n" + morning_note
-        
+
         confidence = state["confidence_scores"].get("editor", 1.0)
-        
+
         await sse_service.emit_event(
             state["pipeline_run_id"],
             {
@@ -206,7 +206,7 @@ async def editor_agent_node(state: AgentState) -> dict:
                 "timestamp": datetime.now(UTC).isoformat()
             }
         )
-        
+
         await sse_service.emit_event(
             state["pipeline_run_id"],
             {
@@ -215,9 +215,9 @@ async def editor_agent_node(state: AgentState) -> dict:
                 "timestamp": datetime.now(UTC).isoformat()
             }
         )
-        
+
         sse_service.cleanup(state["pipeline_run_id"])
-        
+
         return {
             "morning_note": morning_note,
             "recommendations": recommendations,
@@ -261,14 +261,14 @@ async def editor_agent_node(state: AgentState) -> dict:
     penalized_confidence_scores, all_warnings = apply_confidence_penalties(confidence_scores, all_new_flags)
 
     morning_note = parsed.get("morning_note", "")
-    
+
     if morning_note_sections:
         morning_note = "\n\n".join(morning_note_sections) + "\n\n" + morning_note
     if all_warnings:
         morning_note = "\n\n".join(all_warnings) + "\n\n" + morning_note
 
     confidence = state["confidence_scores"].get("editor", 1.0)
-    
+
     await sse_service.emit_event(
         state["pipeline_run_id"],
         {
@@ -278,7 +278,7 @@ async def editor_agent_node(state: AgentState) -> dict:
             "timestamp": datetime.now(UTC).isoformat()
         }
     )
-    
+
     await sse_service.emit_event(
         state["pipeline_run_id"],
         {
@@ -287,7 +287,7 @@ async def editor_agent_node(state: AgentState) -> dict:
             "timestamp": datetime.now(UTC).isoformat()
         }
     )
-    
+
     sse_service.cleanup(state["pipeline_run_id"])
 
     return {
