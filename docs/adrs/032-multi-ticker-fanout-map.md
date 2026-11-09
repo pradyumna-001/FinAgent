@@ -1,8 +1,8 @@
-# ADR-032: Multi-Ticker Fan-Out — LangGraph `map` Pattern
+# ADR-032: Multi-Ticker Fan-Out — LangGraph `Send` API
 
-**Status**: Accepted
-**Date**: 2026-10-28
-**Deciders**: Pradyumna (solo)
+**Status**: Accepted  
+**Date**: 2026-10-28  
+**Deciders**: Pradyumna (solo)  
 **Related Issues**: #122 (multi-ticker morning notes), ADR-030 (schema), ADR-031 (AgentState & graph), ADR-009 (LangGraph reducers)
 
 ---
@@ -11,15 +11,22 @@
 
 Issue #122 requires running CompanyAgent, QuantAgent, RiskAgent **once per ticker** in parallel for N tickers (typically 5-10), merging outputs via `merge_dicts` reducers into dict-keyed-by-ticker state.
 
-LangGraph version: **1.2.11** (≥ 0.2.0) — `map` pattern available.
+LangGraph version: **1.2.11** — both `map` pattern and `Send` API available.
+
+**Why `Send` API over `.map()`?**
+- **Dynamic**: Handles any portfolio size (1-50+ tickers) without static graph definition
+- **Cleaner**: Avoids 60+ static nodes that `.map()` creates internally
+- **Explicit control**: Each `Send` invocation receives exact state slice with `current_ticker`
+- **Better debugging**: Trace shows individual `Send` invocations with ticker context
 
 ---
 
-## Decision: Option C — `map` Pattern
+## Decision: Option Z — `Send` API with Fan-Out Functions
 
 ```python
 # app/graph/pipeline.py
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import Send
 from app.agents.company import company_agent_node
 from app.agents.quant import quant_agent_node
 from app.agents.risk import risk_agent_node
@@ -31,7 +38,7 @@ from app.agents.send import send_note_node
 from app.agents.approval_gate import approval_gate_node
 from app.agents.finalize import finalize_morning_note_node
 from app.graph.serialization import get_serializer
-from app.graph.state import AgentState, InvalidStateError, create_initial_state
+from app.graph.state import AgentState, InvalidStateError, create_initial_state_multi
 
 def validated_node(node_fn, name: str):
     async def wrapper(state: AgentState) -> AgentState:
@@ -40,31 +47,43 @@ def validated_node(node_fn, name: str):
     wrapper.__name__ = name
     return wrapper
 
+
+def fan_out_company(state: AgentState) -> list[Send]:
+    """Fan out to company agent for each ticker."""
+    base = {k: v for k, v in state.items() if k != "company_tickers"}
+    return [
+        Send("company", {**base, "current_ticker": t, "company_tickers": [t]})
+        for t in state["company_tickers"]
+    ]
+
+
+def fan_out_quant(state: AgentState) -> list[Send]:
+    """Fan out to quant agent for each ticker."""
+    base = {k: v for k, v in state.items() if k != "company_tickers"}
+    return [
+        Send("quant", {**base, "current_ticker": t, "company_tickers": [t]})
+        for t in state["company_tickers"]
+    ]
+
+
+def fan_out_risk(state: AgentState) -> list[Send]:
+    """Fan out to risk agent for each ticker."""
+    base = {k: v for k, v in state.items() if k != "company_tickers"}
+    return [
+        Send("risk", {**base, "current_ticker": t, "company_tickers": [t]})
+        for t in state["company_tickers"]
+    ]
+
+
 builder = StateGraph(AgentState)
 
 # Macro runs once (global context)
 builder.add_node("macro", validated_node(macro_agent_node, "macro"))
 
-# Fan-out per ticker using map pattern
-# Each agent receives sliced state with single ticker, outputs dict-keyed-by-ticker
-builder.add_node("company", validated_node(company_agent_node, "company")).map(
-    lambda state: [
-        {"current_ticker": t, "company_tickers": [t]} 
-        for t in state["company_tickers"]
-    ]
-)
-builder.add_node("quant", validated_node(quant_agent_node, "quant")).map(
-    lambda state: [
-        {"current_ticker": t, "company_tickers": [t]} 
-        for t in state["company_tickers"]
-    ]
-)
-builder.add_node("risk", validated_node(risk_agent_node, "risk")).map(
-    lambda state: [
-        {"current_ticker": t, "company_tickers": [t]} 
-        for t in state["company_tickers"]
-    ]
-)
+# Per-ticker agents (fan-out targets)
+builder.add_node("company", validated_node(company_agent_node, "company"))
+builder.add_node("quant", validated_node(quant_agent_node, "quant"))
+builder.add_node("risk", validated_node(risk_agent_node, "risk"))
 
 # Consolidate runs once on merged per-ticker state
 builder.add_node("consolidate", validated_node(consolidate_node, "consolidate"))
@@ -80,9 +99,17 @@ builder.add_node("finalize", validated_node(finalize_morning_note_node, "finaliz
 
 # Edges
 builder.add_edge(START, "macro")
-builder.add_edge("macro", "company")
-builder.add_edge("company", "quant")
-builder.add_edge("quant", "risk")
+
+# Fan-out: macro -> company (parallel per ticker)
+builder.add_conditional_edges("macro", fan_out_company, ["company"])
+
+# Fan-out: company -> quant (parallel per ticker)
+builder.add_conditional_edges("company", fan_out_quant, ["quant"])
+
+# Fan-out: quant -> risk (parallel per ticker)
+builder.add_conditional_edges("quant", fan_out_risk, ["risk"])
+
+# risk -> consolidate -> editor -> persist -> send -> approval_gate -> finalize
 builder.add_edge("risk", "consolidate")
 builder.add_edge("consolidate", "editor")
 builder.add_edge("editor", "persist")
@@ -91,14 +118,16 @@ builder.add_edge("send", "approval_gate")
 builder.add_edge("approval_gate", "finalize")
 builder.add_edge("finalize", END)
 
+
 def compile_graph(checkpointer) -> CompiledStateGraph:
     return builder.compile(checkpointer=checkpointer)
+
 
 _dev_saver = InMemorySaver()
 _dev_saver.serde = get_serializer()
 dev_graph = builder.compile(checkpointer=_dev_saver)
 
-__all__ = ["compile_graph", "dev_graph", "create_initial_state"]
+__all__ = ["compile_graph", "dev_graph", "create_initial_state_multi"]
 ```
 
 ---
@@ -110,14 +139,14 @@ All per-ticker agents (Company, Quant, Risk) must be updated:
 ### Input: Sliced State
 ```python
 # Before: state["company_ticker"] → str
-# After:  state["current_ticker"] → str (injected by map)
+# After:  state["current_ticker"] → str (injected by Send API)
 ```
 
 ### Output: Dict-Keyed-By-Ticker (for `merge_dicts` reducer)
 ```python
 # CompanyAgent
 async def company_agent_node(state: AgentState) -> dict:
-    ticker = state["current_ticker"]
+    ticker = state.get("current_ticker", state["company_tickers"][0])
     events = await fetch_company_events(ticker)
     return {
         "company_events": {ticker: events},  # DICT, not list
@@ -127,7 +156,7 @@ async def company_agent_node(state: AgentState) -> dict:
 
 # QuantAgent
 async def quant_agent_node(state: AgentState) -> dict:
-    ticker = state["current_ticker"]
+    ticker = state.get("current_ticker", state["company_tickers"][0])
     metrics = await fetch_quant_metrics(ticker)
     return {
         "quant_metrics": {ticker: metrics},  # DICT
@@ -137,7 +166,7 @@ async def quant_agent_node(state: AgentState) -> dict:
 
 # RiskAgent
 async def risk_agent_node(state: AgentState) -> dict:
-    ticker = state["current_ticker"]
+    ticker = state.get("current_ticker", state["company_tickers"][0])
     # Reads per-ticker data from merged state:
     company_events = state["company_events"].get(ticker, [])
     quant_metrics = state["quant_metrics"].get(ticker)
@@ -169,29 +198,43 @@ async def macro_agent_node(state: AgentState) -> dict:
 # app/agents/consolidate.py
 from app.graph.state import AgentState
 from app.db.session import SessionLocal
-from app.db.models import Company
+from app.db.models import Company, Portfolio, PortfolioHolding
 from sqlalchemy import select
 from app.utils.flags import DataFlag, Severity
 
 async def consolidate_node(state: AgentState) -> dict:
     tickers = state["company_tickers"]
     
-    # Fetch sectors for all tickers
+    # Fetch sectors for all tickers via portfolio holdings
     async with SessionLocal() as session:
         result = await session.execute(
             select(Company.ticker, Company.sector)
+            .join(PortfolioHolding, PortfolioHolding.company_id == Company.id)
+            .join(Portfolio, Portfolio.id == PortfolioHolding.portfolio_id)
+            .where(Portfolio.manager_id == state["manager_id"])
             .where(Company.ticker.in_(tickers))
         )
         sectors = {row[0]: row[1] or "Unknown" for row in result}
     
-    # Compute sector weights from portfolio holdings (simplified: equal weight)
-    # TODO: Use actual PortfolioHolding.weight when available
+    # Compute sector weights from portfolio holdings
     sector_weights = {}
-    for t in tickers:
-        sector = sectors.get(t, "Unknown")
-        sector_weights[sector] = sector_weights.get(sector, 0) + 1 / len(tickers)
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(PortfolioHolding.company_id, PortfolioHolding.weight, Company.ticker, Company.sector)
+            .join(Company, Company.id == PortfolioHolding.company_id)
+            .join(Portfolio, Portfolio.id == PortfolioHolding.portfolio_id)
+            .where(Portfolio.manager_id == state["manager_id"])
+        )
+        for holding in result:
+            sector = sectors.get(holding.ticker, "Unknown")
+            sector_weights[sector] = sector_weights.get(sector, 0) + holding.weight
     
-    # Portfolio risk flags
+    # Normalize weights
+    total = sum(sector_weights.values())
+    if total > 0:
+        sector_weights = {k: v / total for k, v in sector_weights.items()}
+    
+    # Portfolio risk flags (concentration > 40%)
     portfolio_risk_flags = []
     for sector, weight in sector_weights.items():
         if weight > 0.4:
@@ -232,14 +275,14 @@ async def consolidate_node(state: AgentState) -> dict:
 - **Dynamic fan-out** — handles any portfolio size (1 to 50+ tickers)
 - **Clean graph** — 4 nodes (company, quant, risk, consolidate) vs 60+ static
 - **Native reducer merge** — `merge_dicts` automatically combines per-ticker dicts
-- **LangSmith traceability** — each map iteration appears as separate node in trace
-- **Isolation** — ticker failure doesn't block others (LangGraph map handles errors per iteration)
+- **LangSmith traceability** — each `Send` invocation appears as separate node in trace with ticker context
+- **Explicit state slicing** — fan-out functions make state injection clear and testable
 
 ### Negative / Risks
 - **Agent rewrites required** — Company, Quant, Risk agents must accept sliced state + output dict-keyed
-- **Map error handling** — need to verify LangGraph 1.2 behavior when one iteration fails (does it stop others?)
-- **State slicing boilerplate** — each agent extracts `current_ticker`, wraps output in dict
-- **Testing complexity** — must test map behavior with various ticker counts
+- **More boilerplate** — fan-out functions + conditional edges vs `.map()` one-liner
+- **Testing complexity** — must test fan-out with various ticker counts
+- **Error handling** — need to verify LangGraph behavior when one `Send` fails (does it stop others?)
 
 ---
 
@@ -247,8 +290,8 @@ async def consolidate_node(state: AgentState) -> dict:
 
 1. **Add `consolidate_node`** — new file `app/agents/consolidate.py`
 2. **Rewrite Company/Quant/Risk agents** — sliced input, dict-keyed output
-3. **Update `app/graph/pipeline.py`** — replace static nodes with `.map()` pattern
-4. **Update tests** — mock map iterations, verify merged state
+3. **Update `app/graph/pipeline.py`** — replace static nodes with `Send` API fan-out
+4. **Update tests** — mock fan-out invocations, verify merged state
 5. **Integration test** — run graph with 3+ tickers, verify consolidated output
 
 ---
@@ -260,14 +303,14 @@ async def consolidate_node(state: AgentState) -> dict:
 | `tests/unit/test_company_agent_multi.py` | CompanyAgent with sliced state returns dict-keyed output |
 | `tests/unit/test_quant_agent_multi.py` | QuantAgent with sliced state returns dict-keyed output |
 | `tests/unit/test_risk_agent_multi.py` | RiskAgent reads per-ticker data, outputs dict-keyed |
-| `tests/integration/test_graph_map_fanout.py` | Graph runs map nodes, merges correctly, consolidate executes |
+| `tests/integration/test_graph_fanout.py` | Graph runs fan-out (Send API), merges correctly, consolidate executes |
 | `tests/integration/test_consolidate_node.py` | Sector weights, concentration flags computed correctly |
 
 ---
 
 ## References
 
-- LangGraph `map` pattern docs: https://langchain-ai.github.io/langgraph/how-tos/map-reduce/
+- LangGraph `Send` API docs: https://langchain-ai.github.io/langgraph/concepts/low_level/#send
 - ADR-031: Multi-Ticker AgentState & Graph Architecture
 - ADR-009: LangGraph Reducers (`merge_dicts`)
 - `app/graph/pipeline.py` — current graph definition
