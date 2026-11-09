@@ -34,7 +34,7 @@ flowchart TB
     %% Celery Worker
     subgraph CW["CELERY WORKER POOL"]
         direction TB
-        WF[run_daily_pipeline() task<br/>idempotent, retryable<br/> Fetches portfolio tickers from DB<br/> Creates MorningNote (status=pending)<br/> Invokes LangGraph pipeline<br/> On success: status=completed<br/> On failure: status=failed + flags]
+        WF[run_daily_pipeline task<br/>idempotent, retryable<br/> Fetches portfolio tickers from DB<br/> Creates MorningNote status=pending<br/> Invokes LangGraph pipeline<br/> On success: status=completed<br/> On failure: status=failed + flags]
     end
 
     API --> CW
@@ -53,7 +53,7 @@ flowchart TB
         end
 
         %% Consolidate
-        CN[Consolidate Node<br/>portfolio sector weights<br/>concentration flags (>40%)<br/>stale data flags (>24h)]
+        CN[Consolidate Node<br/>portfolio sector weights<br/>concentration flags >40%<br/>stale data flags >24h]
 
         %% Editor
         EA[EditorAgent<br/>Nemotron 3 Ultra<br/>consolidated Portuguese note<br/>per-ticker recommendations<br/>confidence scores]
