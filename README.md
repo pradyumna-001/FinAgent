@@ -21,12 +21,12 @@ flowchart TB
     %% FastAPI API Layer
     subgraph API["FASTAPI API Layer"]
         direction TB
-        FT[POST /pipeline/trigger<br/> 202 + pipeline_run_id]
-        FM[GET /morning-notes?manager_id=X<br/> List notes]
-        FD[GET /morning-notes/{id}<br/> Full note detail]
-        FS[GET /morning-notes/{id}/stream<br/> SSE real-time events]
-        FF[POST /morning-notes/{id}/feedback<br/> Submit manager feedback]
-        FH[GET /health<br/> {status, db}]
+        FT[POST /pipeline/trigger<br/>202 + pipeline_run_id]
+        FM[GET /morning-notes?manager_id=X<br/>List notes]
+        FD[GET /morning-notes/id<br/>Full note detail]
+        FS[GET /morning-notes/id/stream<br/>SSE real-time events]
+        FF[POST /morning-notes/id/feedback<br/>Submit manager feedback]
+        FH[GET /health<br/>status db]
     end
 
     TRIGGERS --> API
