@@ -171,7 +171,7 @@ async def editor_agent_node(state: AgentState) -> dict:
 
     try:
         parsed = json.loads(raw_text)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError, ValueError):
         new_flags.append(
             DataFlag(
                 source="editor_parse",
@@ -222,11 +222,30 @@ async def editor_agent_node(state: AgentState) -> dict:
             "flags": all_new_flags
         }
 
+    # Ensure parsed is a dict
+    if not isinstance(parsed, dict):
+        new_flags.append(
+            DataFlag(
+                source="editor_parse",
+                severity=Severity.WARNING,
+                message="EditorAgent response is not a JSON object"
+            )
+        )
+        parsed = {}
+
+    parsed_recommendations = parsed.get("recommendations", {})
+    if not isinstance(parsed_recommendations, dict):
+        parsed_recommendations = {}
+
+    parsed_confidence_scores = parsed.get("confidence_scores", {})
+    if not isinstance(parsed_confidence_scores, dict):
+        parsed_confidence_scores = {}
+
     missing_tickers: list[str] = []
     for t in tickers:
-        if t not in parsed.get("recommendations", {}):
+        if t not in parsed_recommendations:
             missing_tickers.append(t)
-        if t not in parsed.get("confidence_scores", {}):
+        if t not in parsed_confidence_scores:
             if t not in missing_tickers:
                 missing_tickers.append(t)
 
@@ -240,9 +259,9 @@ async def editor_agent_node(state: AgentState) -> dict:
         )
 
     for t in tickers:
-        if t in parsed.get("recommendations", {}) and t in parsed.get("confidence_scores", {}):
-            recommendations[t] = parsed["recommendations"][t]
-            confidence_scores[t] = parsed["confidence_scores"][t]
+        if t in parsed_recommendations and t in parsed_confidence_scores:
+            recommendations[t] = parsed_recommendations[t]
+            confidence_scores[t] = parsed_confidence_scores[t]
         else:
             confidence_scores[t] = {}
             morning_note_sections.append(f"### {t}\n\n[Dados indisponíveis para {t}]")
@@ -251,7 +270,8 @@ async def editor_agent_node(state: AgentState) -> dict:
 
     penalized_confidence_scores, all_warnings = apply_confidence_penalties(confidence_scores, all_new_flags)
 
-    morning_note = parsed.get("morning_note", "")
+    morning_note_raw = parsed.get("morning_note", "")
+    morning_note = morning_note_raw if isinstance(morning_note_raw, str) else ""
 
     if morning_note_sections:
         morning_note = "\n\n".join(morning_note_sections) + "\n\n" + morning_note
