@@ -10,9 +10,9 @@ FinAgent runs a **multi-ticker pipeline** that produces **one consolidated morni
 flowchart TB
     %% External Triggers
     subgraph TRIGGERS["External Triggers"]
-        CB[Celery Beat<br/>6:00 AM BRT<br/>Daily schedule]:::trigger
-        API[API Call<br/>POST /pipeline/trigger<br/>Manual trigger]:::trigger
-        MT[Manual<br/>Dashboard trigger]:::trigger
+        CB[Celery Beat<br/>6:00 AM BRT]
+        API[API Call<br/>POST /trigger]
+        MT[Manual Trigger]
     end
 
     CB --> API
@@ -21,12 +21,12 @@ flowchart TB
     %% FastAPI API Layer
     subgraph API["FASTAPI API Layer"]
         direction TB
-        FT[POST /pipeline/trigger<br/>202 + pipeline_run_id]
-        FM[GET /morning-notes?manager_id=X<br/>List notes]
-        FD[GET /morning-notes/id<br/>Full note detail]
-        FS[GET /morning-notes/id/stream<br/>SSE real-time events]
-        FF[POST /morning-notes/id/feedback<br/>Submit manager feedback]
-        FH[GET /health<br/>status db]
+        FT[POST /pipeline/trigger]
+        FM[GET /morning-notes]
+        FD[GET /morning-notes/id]
+        FS[GET /morning-notes/id/stream]
+        FF[POST /feedback]
+        FH[GET /health]
     end
 
     TRIGGERS --> API
@@ -34,8 +34,15 @@ flowchart TB
     %% Celery Worker
     subgraph CW["CELERY WORKER POOL"]
         direction TB
-        WF[run_daily_pipeline task<br/>idempotent, retryable<br/> Fetches portfolio tickers from DB<br/> Creates MorningNote status=pending<br/> Invokes LangGraph pipeline<br/> On success: status=completed<br/> On failure: status=failed + flags]
+        WF1[Fetch tickers<br/>from DB]
+        WF2[Create MorningNote<br/>status=pending]
+        WF3[Run LangGraph<br/>pipeline]
+        WF4[Update status<br/>completed/failed]
     end
+
+    WF1 --> WF2
+    WF2 --> WF3
+    WF3 --> WF4
 
     API --> CW
 
@@ -43,20 +50,20 @@ flowchart TB
     subgraph LG["LANGGRAPH STATEGRAPH<br/>Multi-Ticker Pipeline"]
         direction TB
         %% Macro Agent
-        MA[MacroAgent<br/> macro news<br/>Selic, inflation, FX<br/>runs ONCE per portfolio]
+        MA[MacroAgent<br/>macro news<br/>Selic, IPCA, FX]
 
         %% Fan-out agents
-        subgraph FO["Fan-out via Send API<br/>runs per ticker in parallel"]
-            CA[CompanyAgent<br/>Tavily company events<br/>per ticker]
-            QA[QuantAgent<br/>yfinance P/L, EV/EBITDA,<br/>P/VPA, dividend yield<br/>per ticker]
-            RA[RiskAgent<br/>adversarial NIM <br/>risk flags per ticker]
+        subgraph FO["Fan-out via Send API<br/>per ticker in parallel"]
+            CA[CompanyAgent<br/>Tavily company events]
+            QA[QuantAgent<br/>yfinance metrics]
+            RA[RiskAgent<br/>adversarial analysis]
         end
 
         %% Consolidate
-        CN[Consolidate Node<br/>portfolio sector weights<br/>concentration flags 40%+<br/>stale data flags 24h+]
+        CN[Consolidate Node<br/>sector weights<br/>concentration flags<br/>stale data flags]
 
         %% Editor
-        EA[EditorAgent<br/>Nemotron 3 Ultra<br/>consolidated Portuguese note<br/>per-ticker recommendations<br/>confidence scores]
+        EA[EditorAgent<br/>Nemotron 3 Ultra<br/>consolidated note<br/>recommendations<br/>confidence scores]
 
         END1((END))
 
@@ -74,7 +81,7 @@ flowchart TB
     %% Data Layer
     subgraph DL["DATA LAYER"]
         direction TB
-        PG[PostgreSQL 16 + pgvector<br/>+ PostgreSQL 18 + Apache AGE<br/>RLS enabled<br/>Morning notes, recommendations,<br/>companies, portfolios, holdings]
+        PG[PostgreSQL 16 + 18<br/>pgvector + Apache AGE<br/>RLS enabled]
         RD[Redis 7.2 + AOF<br/>Celery broker<br/>SSE pub/sub]
     end
 
@@ -82,7 +89,7 @@ flowchart TB
 
     %% Observability
     subgraph OBS["OBSERVABILITY"]
-        CW2[CloudWatch<br/>logs + metrics + alarms]
+        CW2[CloudWatch<br/>logs + metrics<br/>alarms]
         LS[LangSmith<br/>agent traces]
     end
 
@@ -99,7 +106,7 @@ flowchart TB
 
     class CB,API,MT trigger;
     class FT,FM,FD,FS,FF,FH api;
-    class WF worker;
+    class WF1,WF2,WF3,WF4 worker;
     class MA,CA,QA,RA,CN,EA langgraph;
     class PG,RD datalayer;
     class CW2,LS obs;
