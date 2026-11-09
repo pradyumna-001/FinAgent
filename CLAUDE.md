@@ -28,16 +28,20 @@ Generates daily morning notes + buy/sell/keep recommendations for B3 equities at
 
 ```
 Celery Beat (6 AM) → Celery Worker → LangGraph Pipeline → PostgreSQL + MAGMA
-                                    ↓
-                              FastAPI (SSE) → Frontend
+                                     ↓
+                               FastAPI (SSE) → Frontend
 ```
 
-**5-Agent Pipeline** (parallel fan-out/fan-in):
-1. **MacroAgent** — Tavily + NIM → macro context (Selic, IPCA, FX)
-2. **CompanyAgent** — Tavily + NIM → company events (earnings, dividends, M&A)
-3. **QuantAgent** — yfinance + NIM → P/L, EV/EBITDA, P/VPA, DY, dev_ibov (Python calculates, LLM interprets)
-4. **RiskAgent** — Adversarial NIM → risk flags (probability, impact, severity)
-5. **EditorAgent** — Nemotron 3 Ultra → Portuguese morning note + recommendation + confidence scores
+**Multi-Ticker Pipeline** (runs once per portfolio per day):
+1. **MacroAgent** — Tavily + NIM → macro context (Selic, IPCA, FX) — **runs once**
+2. **Fan-out** — CompanyAgent, QuantAgent, RiskAgent run in parallel **per ticker** (LangGraph `Send` API)
+3. **Consolidate Node** — Computes portfolio-level sector weights, concentration flags, stale data flags
+4. **EditorAgent** — Nemotron 3 Ultra → consolidated Portuguese morning note + per-ticker recommendations + confidence scores
+
+**AgentState** is dict-keyed-by-ticker with `merge_dicts` reducers:
+- `company_tickers: list[str]` — portfolio tickers
+- Per-ticker fields: `company_events`, `quant_metrics`, `risk_flags`, `recommendations`, `confidence_scores`, `data_freshness`
+- Portfolio-level fields: `sector_weights`, `portfolio_risk_flags`, `portfolio_data_flags`
 
 ## Critical Invariants (Tested in CI)
 
@@ -49,14 +53,16 @@ Celery Beat (6 AM) → Celery Worker → LangGraph Pipeline → PostgreSQL + MAG
 
 | File | Purpose |
 |------|---------|
-| `app/graph/state.py` | AgentState TypedDict, reducers, validation, create_initial_state |
-| `app/graph/pipeline.py` | StateGraph with 5 nodes, validated_node wrapper, checkpointers |
-| `app/agents/*.py` | 5 agent nodes — all return partial dicts, append DataFlag on failure |
+| `app/graph/state.py` | AgentState TypedDict, reducers, validation, create_initial_state_multi |
+| `app/graph/pipeline.py` | StateGraph with fan-out (Send API), Consolidate, validated_node wrapper, checkpointers |
+| `app/agents/*.py` | 5 agent nodes + consolidate — all return partial dicts, append DataFlag on failure |
+| `app/agents/consolidate.py` | Consolidate node — computes portfolio sector weights, concentration flags, stale data flags |
 | `app/utils/flags.py` | DataFlag (frozen dataclass), Severity enum (INFO/WARNING/FATAL) |
 | `app/utils/editor_confidence.py` | apply_confidence_penalties — reduces scores for flagged sections |
 | `app/core/logging_config.py` | Structured logging + CorrelationMiddleware (X-Pipeline-Run-Id, X-Morning-Note-Id) |
 | `app/db/session.py` | Async engines, get_session (writer), get_read_session (reader) |
 | `scripts/reindex_hnsw.py` | HNSW drift detection + REINDEX CONCURRENTLY operator |
+| `scripts/run_full_graph_test.py` | Standalone full graph test runner (Windows-compatible) |
 | `tests/integration/test_app_role.py` | Behavioral probes for finagent_app role permissions |
 
 ## Development Rules
@@ -75,7 +81,7 @@ Celery Beat (6 AM) → Celery Worker → LangGraph Pipeline → PostgreSQL + MAG
 - Journal is durable record (not chat)
 
 ### Testing
-- Unit tests: `tests/unit/` — no DB, fast (~66 tests)
+- Unit tests: `tests/unit/` — no DB, fast (~113 tests)
 - Integration tests: `tests/integration/` — real PostgreSQL via Docker (~49 tests)
 - Run: `uv run pytest tests/unit/ -v` or `uv run pytest tests/integration/ -v`
 
@@ -131,6 +137,9 @@ uv run python scripts/run_pipeline.py
 # HNSW reindex (dry run)
 uv run python scripts/reindex_hnsw.py --dry-run
 
+# Standalone full graph test (Windows-compatible)
+uv run python tests/integration/run_full_graph_test.py
+
 # Celery worker
 export DATABASE_URL="postgresql+asyncpg://finagent:finagent_secure_pass@localhost:5432/finagent"
 export REDIS_URL="redis://localhost:6379/0"
@@ -142,24 +151,26 @@ uv run celery -A app.workers.pipeline beat --loglevel=info --scheduler=celery.be
 
 ## Current Branch State
 
-- **Main**: Latest merged (PR #92 — Docker Compose + Celery)
-- **Active**: None (all Semana 1 branches merged)
-- **Next**: Issue #06 (Semana 1 review) → then #07 (Typed AgentState)
+- **Main**: Latest merged (PR #132 — Issue #124 Multi-Ticker AgentState & Graph)
+- **Active**: None (all Semana 1-3 branches merged)
+- **Next**: Issue #125 — Agents: Per-Ticker Rewrites (Company/Quant/Risk/Editor)
 
 ## Open Follow-ups (from journals)
 
-1. RLS on remaining 5 tables (#03a) — managers, companies, portfolios, portfolio_holdings, recommendations
-2. App role password in migration (currently set in test fixture only)
-3. HNSW drift thresholds need production tuning
-4. Automatic cron for reindex (script ready, needs deployment)
-5. Docker layer caching for CI
-6. GET /morning-notes/{id} detail endpoint (for frontend)
-7. Feedback endpoint + model
-8. MAGMA implementation (#16-18)
-9. Celery Beat schedule persistence via volume mount (configured in #02)
-10. No default secrets in docker-compose (enforced in #02)
+1. **#125** — Agents: Per-Ticker Rewrites (core prerequisite: inject `current_ticker` via fan-out)
+2. **#126** — Pipeline completion (Persist/Send/Approval/Finalize)
+3. **#127** — Worker & API: Portfolio-level trigger
+4. **#128** — SSE events (parallel)
+5. **#129** — Test migration: Incremental adapter strategy (spans all, parallel)
+6. **#113** — Gestor onboarding (deferred, prerequisite for #116, #117)
+7. **#114** — Secrets management (SSM)
+8. **#115** — Deploy watchdog
+9. **#117** — Minimal production deploy
+10. **#116** — Onboard first gestores
+11. **#118** — Observability & alerting
+12. **#119** — Cost tracking & optimization
 
-## Agent Contract (All 5 Agents)
+## Agent Contract (All 5 Agents + Consolidate)
 
 ```python
 async def agent_node(state: AgentState) -> dict:
@@ -171,17 +182,35 @@ async def agent_node(state: AgentState) -> dict:
     # 6. NEVER raise — always return dict
 ```
 
+**Per-ticker agents (Company, Quant, Risk)** read `state["current_ticker"]` from fan-out state:
+```python
+ticker = state.get("current_ticker", state["company_tickers"][0])
+return {"company_events": {ticker: events}, "data_freshness": {ticker: now}, "flags": new_flags}
+```
+
+**MacroAgent** runs once, outputs to `macro_context["global"]` key.
+
+**EditorAgent** loops through all tickers with semaphore (max 3 concurrent), produces:
+- `morning_note`: consolidated string with per-ticker sections
+- `recommendations`: `dict[ticker, RecommendationPayload]`
+- `confidence_scores`: `dict[ticker, dict[section, float]]`
+
 ## Reducer Pattern (Parallel Agents)
 
 ```python
 # In AgentState (app/graph/state.py)
+company_events: Annotated[dict[str, list[CompanyEvent]], merge_dicts]
+quant_metrics: Annotated[dict[str, QuantOutput | None], merge_dicts]
+risk_flags: Annotated[dict[str, list[RiskFlag]], merge_dicts]
+recommendations: Annotated[dict[str, RecommendationPayload], merge_dicts]
+confidence_scores: Annotated[dict[str, dict[str, float]], merge_dicts]
 data_freshness: Annotated[dict[str, datetime], merge_dicts]
 flags: Annotated[list[DataFlag], add]
 
-# Agents return partial dicts:
-# company_agent → {"company_events": [...], "data_freshness": {"company": now}, "flags": [flag]}
-# quant_agent   → {"quant_metrics": {...}, "data_freshness": {"quant": now}, "flags": [flag]}
-# LangGraph merges via reducers automatically
+# Per-ticker agents return dict-keyed output:
+# company_agent → {"company_events": {"PETR4": [...]}, "data_freshness": {"PETR4": now}, "flags": [flag]}
+# quant_agent   → {"quant_metrics": {"PETR4": {...}}, "data_freshness": {"PETR4": now}, "flags": [flag]}
+# LangGraph merges via reducers automatically across fan-out iterations
 ```
 
 ## RLS Pattern
@@ -210,9 +239,9 @@ Integration: EditorAgent consults before generation; `update_magma_after_note()`
 | `README.md` | Project overview, quick start |
 | `DEPLOYMENT.md` | Local + AWS deployment guide |
 | `docs/architecture.md` | Full architecture documentation |
-| `docs/adrs/` | 10 Architecture Decision Records |
+| `docs/adrs/` | 10+ Architecture Decision Records |
 | `docs/issues.md` | 30-issue, 8-week plan with checkboxes |
-| `docs/CURRENT_STATE.md` | Implementation status (as of 2026-07-20) |
+| `docs/CURRENT_STATE.md` | Implementation status (updated 2026-11) |
 | `docs/journal/new/1_week/` | Daily journal entries (durable record) |
 
 ## When You're Stuck
