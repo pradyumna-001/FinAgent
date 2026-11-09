@@ -45,28 +45,22 @@ THREAD_ID = "graph-test"
 
 EDITOR_JSON = json.dumps({
     "morning_note": "Morning note candidate text.",
-    "recommendation": {
-        "action": "buy",
-        "justification": "Strong upward signals.",
-        "confidence": 0.8
-    },
+    "recommendations": {"PETR4": {"action": "buy", "justification": "Strong upward signals.", "confidence": 0.8}},
     "confidence_scores": {
-        "macro": 0.9,
-        "company": 0.85,
-        "quant": 0.88,
-        "risk": 0.82,
-        "overall": 0.86
+        "PETR4": {"macro": 0.9, "company": 0.85, "quant": 0.88, "risk": 0.82, "overall": 0.86}
     }
 })
 
 
 def make_state(manager_id: int = 1, ticker: str = "PETR4"):
-    return create_initial_state_multi(
+    state = create_initial_state_multi(
         manager_id=manager_id,
         company_tickers=[ticker],
         pipeline_run_id="run-1",
         morning_note_id="note-1"
     )
+    state["current_ticker"] = ticker
+    return state
 
 
 def _tavily_ok():
@@ -218,4 +212,4 @@ async def test_fail_visible_invariant(test_graph, patched_services):
 
     # Morning note now has ### PETR4 header
     note = result["morning_note"]
-    assert "[Aviso]: company - dados incompletos ou falhos" in note
+    assert "[Aviso]: PETR4 - company - dados incompletos ou falhos" in note

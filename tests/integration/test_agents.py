@@ -12,12 +12,14 @@ from app.utils.flags import Severity
 
 
 def make_state():
-    return create_initial_state_multi(
+    state = create_initial_state_multi(
         manager_id=1,
         company_tickers=["PETR4"],
         pipeline_run_id="run-1",
         morning_note_id="note-1"
     )
+    state["current_ticker"] = "PETR4"
+    return state
 
 
 @pytest.mark.asyncio

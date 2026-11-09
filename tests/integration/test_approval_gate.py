@@ -13,17 +13,9 @@ from app.graph.state import InvalidStateError, create_initial_state
 
 EDITOR_JSON = json.dumps({
     "morning_note": "Morning note candidate text.",
-    "recommendation": {
-        "action": "buy",
-        "justification": "Strong upward signals.",
-        "confidence": 0.8
-    },
+    "recommendations": {"PETR4": {"action": "buy", "justification": "Strong upward signals.", "confidence": 0.8}},
     "confidence_scores": {
-        "macro": 0.9,
-        "company": 0.85,
-        "quant": 0.88,
-        "risk": 0.82,
-        "overall": 0.86
+        "PETR4": {"macro": 0.9, "company": 0.85, "quant": 0.88, "risk": 0.82, "overall": 0.86}
     }
 })
 
@@ -89,12 +81,13 @@ async def test_run_to_interrupt_parks_and_persists(approval_gate_graph, migrated
         pipeline_run_id=str(uuid.uuid4()),
         morning_note_id=123,
     )
+    state["current_ticker"] = "PETR4"
     state["recommendation_id"] = 999999
-    state["recommendation"] = {
+    state["recommendations"] = {"PETR4": {
         "action": "buy",
         "confidence": 0.8,
         "justification": "Strong fundamentals",
-    }
+    }}
 
     conn = await asyncpg.connect(dsn)
     try:
@@ -178,12 +171,13 @@ async def test_resume_persists_decision(approval_gate_graph, migrated_db_url):
         pipeline_run_id=str(uuid.uuid4()),
         morning_note_id=123,
     )
+    state["current_ticker"] = "PETR4"
     state["recommendation_id"] = 999999
-    state["recommendation"] = {
+    state["recommendations"] = {"PETR4": {
         "action": "buy",
         "confidence": 0.8,
         "justification": "Strong fundamentals",
-    }
+    }}
 
     conn = await asyncpg.connect(dsn)
     try:
@@ -276,12 +270,13 @@ async def test_replay_is_exactly_once(approval_gate_graph, migrated_db_url):
         pipeline_run_id=str(uuid.uuid4()),
         morning_note_id=123,
     )
+    state["current_ticker"] = "PETR4"
     state["recommendation_id"] = 999999
-    state["recommendation"] = {
+    state["recommendations"] = {"PETR4": {
         "action": "buy",
         "confidence": 0.8,
         "justification": "Strong fundamentals",
-    }
+    }}
 
     conn = await asyncpg.connect(dsn)
     try:
@@ -366,12 +361,13 @@ async def test_ghost_resume(approval_gate_graph, migrated_db_url):
         pipeline_run_id=str(uuid.uuid4()),
         morning_note_id=123,
     )
+    state["current_ticker"] = "PETR4"
     state["recommendation_id"] = 999999
-    state["recommendation"] = {
+    state["recommendations"] = {"PETR4": {
         "action": "buy",
         "confidence": 0.8,
         "justification": "Strong fundamentals",
-    }
+    }}
 
     conn = await asyncpg.connect(dsn)
     try:
@@ -454,12 +450,13 @@ async def test_finalize_sets_completed_on_approval(approval_gate_graph, migrated
         pipeline_run_id=str(uuid.uuid4()),
         morning_note_id=456,
     )
+    state["current_ticker"] = "PETR4"
     state["recommendation_id"] = 999999
-    state["recommendation"] = {
+    state["recommendations"] = {"PETR4": {
         "action": "buy",
         "confidence": 0.8,
         "justification": "Strong fundamentals",
-    }
+    }}
 
     conn = await asyncpg.connect(dsn)
     try:
@@ -544,12 +541,13 @@ async def test_finalize_keeps_pending_on_rejection(approval_gate_graph, migrated
         pipeline_run_id=str(uuid.uuid4()),
         morning_note_id=789,
     )
+    state["current_ticker"] = "PETR4"
     state["recommendation_id"] = 999999
-    state["recommendation"] = {
+    state["recommendations"] = {"PETR4": {
         "action": "buy",
         "confidence": 0.8,
         "justification": "Strong fundamentals",
-    }
+    }}
 
     conn = await asyncpg.connect(dsn)
     try:

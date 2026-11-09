@@ -210,6 +210,7 @@ async def run_full_graph_test():
         pipeline_run_id="test-full-graph-1",
         morning_note_id="test-note-1"
     )
+    initial_state["current_ticker"] = "PETR4"
     print(f"   Initial state created with tickers: {initial_state['company_tickers']}")
 
     # Build graph with mocked downstream nodes
@@ -224,7 +225,7 @@ async def run_full_graph_test():
          patch("app.agents.company.summarize", new=AsyncMock(return_value="Company news summary")), \
          patch("app.agents.quant.YfinanceService") as MockYfinance, \
          patch("app.agents.risk.summarize", new=AsyncMock(return_value='[{"probability": 0.6, "impact": "medium", "description": "Concentration risk in Energy", "severity": "warning"}]')), \
-         patch("app.agents.editor.summarize_nemotron", new=AsyncMock(return_value='{"morning_note": "Test morning note for {ticker}", "recommendation": {"action": "buy", "justification": "Strong fundamentals", "confidence": 0.8}, "confidence_scores": {"macro": 0.85, "company": 0.8, "quant": 0.9, "risk": 0.75, "overall": 0.82}}')):
+         patch("app.agents.editor.summarize_nemotron", new=AsyncMock(return_value='{"morning_note": "Test morning note with PETR4 VALE3 ITUB4 sections", "recommendations": {"PETR4": {"action": "buy", "justification": "Strong fundamentals", "confidence": 0.8}, "VALE3": {"action": "hold", "justification": "Strong fundamentals", "confidence": 0.8}, "ITUB4": {"action": "buy", "justification": "Strong fundamentals", "confidence": 0.8}}, "confidence_scores": {"PETR4": {"macro": 0.85, "company": 0.8, "quant": 0.9, "risk": 0.75, "overall": 0.82}, "VALE3": {"macro": 0.85, "company": 0.8, "quant": 0.9, "risk": 0.75, "overall": 0.82}, "ITUB4": {"macro": 0.85, "company": 0.8, "quant": 0.9, "risk": 0.75, "overall": 0.82}}}')):
 
         # Mock Tavily for macro
         mock_tavily = MockTavily.return_value
@@ -337,6 +338,7 @@ async def run_single_ticker_test():
         pipeline_run_id="test-single-1",
         morning_note_id="test-note-single-1"
     )
+    initial_state["current_ticker"] = "PETR4"
     print(f"   Initial state created with tickers: {initial_state['company_tickers']}")
 
     # Build graph with mocked downstream nodes
@@ -350,7 +352,7 @@ async def run_single_ticker_test():
          patch("app.agents.company.summarize", new=AsyncMock(return_value="Company summary")), \
          patch("app.agents.quant.YfinanceService") as MockYfinance, \
          patch("app.agents.risk.summarize", new=AsyncMock(return_value='[{"probability": 0.5, "impact": "medium", "description": "Risk", "severity": "info"}]')), \
-         patch("app.agents.editor.summarize_nemotron", new=AsyncMock(return_value='{"morning_note": "Single ticker note", "recommendation": {"action": "buy", "justification": "Test", "confidence": 0.8}, "confidence_scores": {"macro": 0.8, "company": 0.7, "quant": 0.9, "risk": 0.6, "overall": 0.75}}')):
+         patch("app.agents.editor.summarize_nemotron", new=AsyncMock(return_value='{"morning_note": "Single ticker note PETR4", "recommendations": {"PETR4": {"action": "buy", "justification": "Test", "confidence": 0.8}}, "confidence_scores": {"PETR4": {"macro": 0.8, "company": 0.7, "quant": 0.9, "risk": 0.6, "overall": 0.75}}}')):
 
         # Mock Tavily for macro
         mock_tavily = MockTavily.return_value

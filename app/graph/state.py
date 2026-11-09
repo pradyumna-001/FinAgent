@@ -52,6 +52,7 @@ class AgentState(TypedDict):
     morning_note_id: str
     manager_id: int
     company_tickers: list[str]
+    current_ticker: str  # injected by fan-out Send API; per-slice, not merged
 
     # Per-ticker data — merge_dicts reducer (shallow merge by key)
     macro_context: Annotated[dict[str, MacroOutput], merge_dicts]               # key = "global"
@@ -90,6 +91,7 @@ def create_initial_state_multi(
     return {
         "manager_id": manager_id,
         "company_tickers": company_tickers,
+        "current_ticker": "",
         "pipeline_run_id": pipeline_run_id,
         "morning_note_id": morning_note_id,
         "macro_context": {},

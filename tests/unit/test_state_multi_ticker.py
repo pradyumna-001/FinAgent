@@ -113,6 +113,7 @@ class TestAgentStateStructure:
         )
         expected_keys = {
             "pipeline_run_id", "morning_note_id", "manager_id", "company_tickers",
+            "current_ticker",
             "macro_context", "company_events", "quant_metrics", "risk_flags",
             "portfolio_risk_flags", "portfolio_data_flags", "sector_weights",
             "morning_note", "recommendations", "confidence_scores",
