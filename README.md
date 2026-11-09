@@ -4,26 +4,26 @@
 
 ## What It Does
 
-FinAgent runs a pipeline of 5 specialized AI agents that work together to produce a structured morning note for each company in a manager's portfolio:
+FinAgent runs a **multi-ticker pipeline** that produces **one consolidated morning note per portfolio per day**, with per-ticker recommendations in structured JSONB:
 
 ```
-MacroAgent → reads macro news (Selic, inflation, FX, Fed impact on Brazil)
+MacroAgent → reads macro news (Selic, inflation, FX, Fed impact on Brazil) — runs ONCE per portfolio
     ↓
-CompanyAgent ←→ QuantAgent  (parallel fan-out)
-    ↓               ↓
-        RiskAgent  (adversarial — questions the others)
-            ↓
-        EditorAgent  (consolidates into morning note + recommendation)
+Fan-out: CompanyAgent, QuantAgent, RiskAgent run in parallel PER TICKER (LangGraph Send API)
+    ↓
+Consolidate Node → computes portfolio sector weights, concentration flags, stale data flags
+    ↓
+EditorAgent → consolidates into single morning note + per-ticker recommendations + confidence scores
 ```
 
-**Output per company**: Morning note in Portuguese + structured recommendation (buy / sell / keep) with justification and confidence scores per section.
+**Output per portfolio**: Single Portuguese morning note + structured per-ticker recommendations (buy / sell / keep) with justification and confidence scores per section. Portfolio-level risk flags (sector concentration, stale data) included.
 
 ## Architecture Highlights
 
 | Layer | Technology |
 |-------|------------|
-| **Orchestration** | LangGraph StateGraph with parallel fan-out/fan-in |
-| **Memory** | MAGMA (ACL 2026) — 4 orthogonal graphs via Apache AGE |
+| **Orchestration** | LangGraph StateGraph with dynamic fan-out (Send API) |
+| **Memory** | MAGMA (ACL 2026) — 4 orthogonal graphs via Apache AGE (planned) |
 | **Vector Search** | pgvector with HNSW index |
 | **Queue** | Celery + Redis (AOF) — daily 6 AM trigger via Celery Beat |
 | **API** | FastAPI with SSE for real-time pipeline updates |
@@ -45,6 +45,9 @@ CompanyAgent ←→ QuantAgent  (parallel fan-out)
 | [008](docs/adrs/008-ci-integration-tests.md) | CI with PG service container | Real DB integration tests on every push |
 | [009](docs/adrs/009-langgraph-reducers.md) | LangGraph reducers for parallelism | `Annotated` merge for concurrent state updates |
 | [010](docs/adrs/010-nvidia-nim-llm.md) | NVIDIA NIM as LLM provider | OpenAI-compatible, cost-effective, fallback built-in |
+| [031](docs/adrs/031-multi-ticker-agentstate-graph.md) | Multi-Ticker AgentState & Graph | Dict-keyed state, fan-out, Consolidate node |
+| [032](docs/adrs/032-multi-ticker-fanout-map.md) | Multi-Ticker Fan-Out | LangGraph Send API for dynamic per-ticker execution |
+| [038](docs/adrs/038-test-migration-strategy.md) | Test Migration Strategy | Incremental adapter for zero-downtime migration |
 
 Full ADR documentation in [`docs/adrs/`](docs/adrs/).
 
@@ -60,20 +63,21 @@ These conditions **must always be true**. Every invariant has a corresponding in
 
 ```
 finAgent/
-├── .github/workflows/ci.yml          # GitHub Actions CI (unit + integration)
+├── .github/workflows/ci.yml          # GitHub Actions CI (unit + integration + standalone graph test)
 ├── alembic/                          # Database migrations
 ├── app/
 │   ├── main.py                       # FastAPI entrypoint + lifespan
 │   ├── core/                         # Config, logging, context vars
-│   ├── agents/                       # 5 AI agents
+│   ├── agents/                       # 5 AI agents + Consolidate
 │   │   ├── macro.py
 │   │   ├── company.py
 │   │   ├── quant.py
 │   │   ├── risk.py
-│   │   └── editor.py
+│   │   ├── editor.py
+│   │   └── consolidate.py            # Portfolio-level risk/flags computation
 │   ├── graph/                        # LangGraph StateGraph
-│   │   ├── state.py                  # Typed AgentState, reducers, validation
-│   │   └── pipeline.py               # Graph definition + checkpointers
+│   │   ├── state.py                  # Typed AgentState, reducers, validation, create_initial_state_multi
+│   │   └── pipeline.py               # Graph definition with fan-out (Send API), checkpointers
 │   ├── memory/                       # MAGMA implementation (planned)
 │   ├── db/                           # SQLAlchemy models + sessions
 │   ├── api/routes/                   # FastAPI routers
@@ -84,17 +88,18 @@ finAgent/
 │   ├── init_vector.sql               # pgvector extension
 │   ├── init_graph.sql                # Apache AGE extension
 │   ├── reindex_hnsw.py               # HNSW drift detection + reindex
-│   └── run_pipeline.py               # Terminal test script
+│   ├── run_pipeline.py               # Terminal test script
+│   └── run_full_graph_test.py        # Standalone full graph test (Windows-compatible)
 ├── tests/
-│   ├── unit/                         # ~66 tests (fast, no DB)
+│   ├── unit/                         # ~113 tests (fast, no DB)
 │   ├── integration/                  # ~49 tests (real DB)
 │   ├── e2e/                          # Planned
 │   └── evals/                        # Planned (20 market scenarios)
 ├── docs/
-│   ├── adrs/                         # Architecture Decision Records
+│   ├── adrs/                         # Architecture Decision Records (10+)
 │   ├── architecture.md               # Full architecture documentation
 │   ├── CURRENT_STATE.md              # Current implementation status
-│   ├── issues.md                     # Issue tracker (30 issues, 8 weeks)
+│   ├── issues.md                     # Issue tracker (30+ issues)
 │   └── journal/                      # Daily journal entries
 ├── docker-compose.yml                # Local infra (PG16+vector, PG18+AGE, Redis)
 ├── DEPLOYMENT.md                     # Deployment guide (local + AWS)
@@ -131,6 +136,9 @@ uv run pytest tests/unit/ -v
 docker-compose up -d postgres_vector redis
 uv run pytest tests/integration/ -v
 
+# Standalone full graph test (Windows-compatible, uses existing PostgreSQL)
+uv run python tests/integration/run_full_graph_test.py
+
 # All tests
 uv run pytest -v
 ```
@@ -163,15 +171,22 @@ uv run pytest -v
 
 ## Current Status
 
-**Phase 1-2 Complete (Weeks 1-3)**: Foundation + Base Agents + Graph Pipeline
+**Phase 1-3 Complete (Weeks 1-3)**: Foundation + Base Agents + Multi-Ticker Graph Pipeline
 - ✅ Repository, Docker, DB schema, RLS, CI/CD
-- ✅ Typed AgentState, 5 agents, LangGraph pipeline with parallel execution
-- ✅ Unit + integration tests (115 total), CI green
+- ✅ Typed AgentState, 5 agents, LangGraph pipeline with parallel fan-out
+- ✅ Multi-ticker architecture: dict-keyed state, Send API fan-out, Consolidate node
+- ✅ Unit + integration tests (162 total), CI green (unit, integration, standalone graph test)
 - ✅ App role split, HNSW reindex operator, CI integration coverage
+- ✅ Test migration strategy (incremental adapter)
 
-**Phase 2 Remaining**: Celery Beat, atomic writes, SSE, pipeline tests
+**Phase 3 Remaining (Week 4+)**:
+- **#125** — Agents: Per-Ticker Rewrites (Company/Quant/Risk/Editor for true multi-ticker)
+- **#126** — Pipeline completion (Persist/Send/Approval/Finalize)
+- **#127** — Worker & API: Portfolio-level trigger
+- **#128** — SSE events (parallel)
+- **#129** — Test migration: Incremental adapter strategy
 
-**Phase 3+**: MAGMA memory, observability, AWS deploy, manager onboarding, frontend
+**Phase 4+**: MAGMA memory, observability, AWS deploy, manager onboarding, frontend
 
 See [`docs/issues.md`](docs/issues.md) for full 30-issue, 8-week plan.
 
