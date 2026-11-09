@@ -13,6 +13,17 @@ logger = logging.getLogger(__name__)
 
 
 async def editor_agent_node(state: AgentState) -> dict:
+    """Generate the consolidated morning note for all tickers in the portfolio.
+
+    Reads merged per-ticker state (company_events, quant_metrics, risk_flags,
+    macro_context) plus portfolio-level fields (sector_weights, portfolio_risk_flags,
+    portfolio_data_flags) from the Consolidate node. Builds a multi-ticker prompt,
+    calls the LLM once, validates that every ticker has recommendations and
+    confidence_scores, applies per-ticker confidence penalties, and returns
+    dict-keyed outputs compatible with the merge_dicts reducer.
+
+    Failures append DataFlags and return valid state - never raises.
+    """
     logger.info(
         "editor_agent_start",
         extra={
