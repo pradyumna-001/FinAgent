@@ -60,9 +60,9 @@ RISK_JSON = '[{"probability": 0.3, "impact": "medium", "description": "Test risk
 
 EDITOR_JSON = json.dumps({
     "morning_note": "Test morning note content",
-    "recommendation": {"action": "buy", "justification": "Test reason", "confidence": 0.85},
+    "recommendations": {"PETR4": {"action": "buy", "justification": "Test reason", "confidence": 0.85}},
     "confidence_scores": {
-        "macro": 0.9, "company": 0.85, "quant": 0.88, "risk": 0.82, "overall": 0.86
+        "PETR4": {"macro": 0.9, "company": 0.85, "quant": 0.88, "risk": 0.82, "overall": 0.86}
     }
 })
 
@@ -139,6 +139,8 @@ async def test_sse_events_correct_order(test_graph, patched_services):
         pipeline_run_id=pipeline_run_id,
         morning_note_id=morning_note_id
     )
+    state["current_ticker"] = "PETR4"
+    state["current_ticker"] = "PETR4"
 
     # Subscribe FIRST to ensure queue exists before graph emits events
     event_queue = asyncio.Queue()
@@ -206,6 +208,7 @@ async def test_sse_parallel_agents_concurrent(test_graph, patched_services):
         pipeline_run_id=pipeline_run_id,
         morning_note_id=morning_note_id
     )
+    state["current_ticker"] = "PETR4"
 
     event_queue = asyncio.Queue()
 
@@ -284,6 +287,7 @@ async def test_sse_note_ready_after_editor(test_graph, patched_services):
         pipeline_run_id=pipeline_run_id,
         morning_note_id=morning_note_id
     )
+    state["current_ticker"] = "PETR4"
 
     event_queue = asyncio.Queue()
 
@@ -343,6 +347,7 @@ async def test_sse_pipeline_failed_on_error(test_graph):
         pipeline_run_id=pipeline_run_id,
         morning_note_id=morning_note_id
     )
+    state["current_ticker"] = "PETR4"
 
     # Mock to make EDITOR fail (summarize_nemotron returns None)
     with (
@@ -410,6 +415,7 @@ async def test_sse_queue_cleanup_on_completion(test_graph, patched_services):
         pipeline_run_id=pipeline_run_id,
         morning_note_id=morning_note_id
     )
+    state["current_ticker"] = "PETR4"
 
     event_queue = asyncio.Queue()
 
@@ -474,12 +480,14 @@ async def test_sse_multiple_concurrent_pipelines_isolated():
             pipeline_run_id=run_id_1,
             morning_note_id=note_id_1
         )
+        state_1["current_ticker"] = "PETR4"
         state_2 = create_initial_state(
             manager_id=2,
             company_ticker="VALE3",
             pipeline_run_id=run_id_2,
             morning_note_id=note_id_2
         )
+        state_2["current_ticker"] = "VALE3"
 
         # Collect events for both
         queue_1 = asyncio.Queue()
