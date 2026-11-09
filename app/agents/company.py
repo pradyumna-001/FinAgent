@@ -37,25 +37,8 @@ async def company_agent_node(state: AgentState) -> dict:
 
     new_flags = []
 
-    ticker = state.get("current_ticker")
-    if ticker is None:
-        # Fallback for direct calls / legacy path / tests
-        tickers = state.get("company_tickers", [])
-        ticker = tickers[0] if tickers else None
-        if ticker is None:
-            new_flags.append(
-                DataFlag(
-                    source="company",
-                    severity=Severity.FATAL,
-                    message="No ticker available (current_ticker missing and company_tickers empty)"
-                )
-            )
-            return {
-                "company_events": {},
-                "data_freshness": {"company": datetime.now(UTC)},
-                "flags": new_flags
-            }
-
+    ticker = state["current_ticker"]
+    
     try:
         tavily = TavilyService(api_key=settings.TAVILY_API_KEY)
     except TavilyConfigError as exc:
