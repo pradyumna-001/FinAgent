@@ -3,22 +3,28 @@
 Each test creates its own isolated engine and session to avoid event loop conflicts.
 """
 
+import os
+
 import pytest
 from sqlalchemy import delete, insert
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-import app.db.session as db_session
-from app.agents.consolidate import consolidate_node
-from app.db.models import Company, Manager, Portfolio, PortfolioHolding
-from app.graph.state import create_initial_state_multi
+# Use environment variables for DB URLs (set in CI), default to local PostgreSQL on 5434
+migration_db_url = os.environ.get("MIGRATION_DATABASE_URL", "postgresql+psycopg://finagent:password@localhost:5434/finagent")
+db_url = os.environ.get("DATABASE_URL", "postgresql+asyncpg://finagent:password@localhost:5434/finagent")
+os.environ["MIGRATION_DATABASE_URL"] = migration_db_url
+os.environ["DATABASE_URL"] = db_url
 
-DB_URL = "postgresql+asyncpg://finagent:password@localhost:5434/finagent"
+import app.db.session as db_session  # noqa: E402
+from app.agents.consolidate import consolidate_node  # noqa: E402
+from app.db.models import Company, Manager, Portfolio, PortfolioHolding  # noqa: E402
+from app.graph.state import create_initial_state_multi  # noqa: E402
 
 
 async def _run_test_with_engine(test_func):
     """Run a test with its own engine, ensuring proper cleanup in the same event loop."""
     engine = create_async_engine(
-        "postgresql+asyncpg://finagent:password@localhost:5434/finagent",
+        os.environ.get("DATABASE_URL", "postgresql+asyncpg://finagent:password@localhost:5434/finagent"),
         echo=False,
         pool_pre_ping=True,
     )

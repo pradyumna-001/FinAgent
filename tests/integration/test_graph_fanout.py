@@ -1,5 +1,6 @@
 """Integration tests for graph fan-out with Send API."""
 
+import os
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
@@ -9,23 +10,31 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-import app.db.session as db_session
-from app.agents.company import company_agent_node
-from app.agents.consolidate import consolidate_node
-from app.agents.editor import editor_agent_node
-from app.agents.macro import macro_agent_node
-from app.agents.quant import quant_agent_node
-from app.agents.risk import risk_agent_node
-from app.graph.serialization import get_serializer
-from app.graph.state import AgentState, InvalidStateError, create_initial_state_multi
+# Use environment variables for DB URLs (set in CI), default to local PostgreSQL on 5434
+migration_db_url = os.environ.get("MIGRATION_DATABASE_URL", "postgresql+psycopg://finagent:password@localhost:5434/finagent")
+db_url = os.environ.get("DATABASE_URL", "postgresql+asyncpg://finagent:password@localhost:5434/finagent")
+os.environ["MIGRATION_DATABASE_URL"] = migration_db_url
+os.environ["DATABASE_URL"] = db_url
 
-DB_URL = "postgresql+asyncpg://finagent:password@localhost:5434/finagent"
+import app.db.session as db_session  # noqa: E402
+from app.agents.company import company_agent_node  # noqa: E402
+from app.agents.consolidate import consolidate_node  # noqa: E402
+from app.agents.editor import editor_agent_node  # noqa: E402
+from app.agents.macro import macro_agent_node  # noqa: E402
+from app.agents.quant import quant_agent_node  # noqa: E402
+from app.agents.risk import risk_agent_node  # noqa: E402
+from app.graph.serialization import get_serializer  # noqa: E402
+from app.graph.state import (  # noqa: E402
+    AgentState,
+    InvalidStateError,
+    create_initial_state_multi,
+)
 
 
 async def _run_test_with_engine(test_func):
     """Run a test with its own engine, ensuring proper cleanup in the same event loop."""
     engine = create_async_engine(
-        "postgresql+asyncpg://finagent:password@localhost:5434/finagent",
+        os.environ.get("DATABASE_URL", "postgresql+asyncpg://finagent:password@localhost:5434/finagent"),
         echo=False,
         pool_pre_ping=True,
     )
