@@ -11,83 +11,78 @@ FinAgent is a multi-agent AI financial analyst that generates daily morning note
 
 ## High-Level Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        EXTERNAL TRIGGERS                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │ Celery Beat │  │  API Call   │  │  Manual     │              │
-│  │ (6 AM BRT)  │  │  /trigger   │  │  Trigger    │              │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘              │
-└─────────┼────────────────┼────────────────┼─────────────────────┘
-          │                │                │
-          ▼                ▼                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                        FASTAPI API                              │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ POST /pipeline/trigger → 202 + pipeline_run_id          │   │
-│  │ GET /morning-notes?manager_id=X → list                  │   │
-│  │ GET /morning-notes/{id} → full detail                   │   │
-│  │ GET /morning-notes/{id}/stream → SSE                    │   │
-│  │ POST /morning-notes/{id}/feedback → update MAGMA        │   │
-│  │ GET /health → {status, db}                              │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     CELERY WORKER POOL                          │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ run_daily_pipeline() task (idempotent, retryable)       │   │
-│  │   → Fetches portfolio tickers from DB                   │   │
-│  │   → Creates MorningNote (status=pending)                │   │
-│  │   → Invokes LangGraph pipeline (multi-ticker)           │   │
-│  │   → On success: status=completed, persist note+rec      │   │
-│  │   → On failure: status=failed, flags in MorningNote     │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    LANGGRAPH STATEGRAPH (Multi-Ticker)         │
-│  START                                                           │
-│    │                                                             │
-│    ▼                                                             │
-│  MacroAgent ──────────────────────────────────────────────────┐  │
-│    │                                                            │  │
-│    ▼                                                            ▼  │
-│  ┌─────────────────────────────────────────────────────────────┐  │
-│  │ FAN-OUT (LangGraph Send API) — runs per ticker in parallel │  │
-│  │  CompanyAgent  │  QuantAgent  │  RiskAgent                   │  │
-│  │  (per ticker)  │  (per ticker)  │  (per ticker)              │  │
-│  └─────────────────────────────────────────────────────────────┘  │
-│    │                                    │                          │
-│    └────────────────┬───────────────────┘                          │
-│                     ▼                                              │
-│              Consolidate Node                                       │
-│         (portfolio sector weights,                                 │
-│          concentration flags,                                       │
-│          stale data flags)                                         │
-│                     │                                              │
-│                     ▼                                              │
-│              EditorAgent                                           │
-│         (consolidated note +                                       │
-│          per-ticker recommendations)                               │
-│                     │                                              │
-│                     ▼                                              │
-│                    END                                             │
-└─────────────────────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      DATA LAYER                                 │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────┐  │
-│  │ PostgreSQL 16    │  │ PostgreSQL 18    │  │ Redis 7.2    │  │
-│  │ (pgvector)       │  │ (Apache AGE)     │  │ (AOF)        │  │
-│  │ - embeddings     │  │ - relational     │  │ - Celery     │  │
-│  │ - HNSW index     │  │   schema         │  │   broker     │  │
-│  │                  │  │ - MAGMA graphs   │  │ - SSE pub/sub│  │
-│  └──────────────────┘  └──────────────────┘  └──────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    %% External Triggers
+    CB[Celery Beat<br/>6 AM BRT]:::trigger
+    API[API Call<br/>POST /trigger]:::trigger
+    MT[Manual<br/>Trigger]:::trigger
+
+    CB --> API
+    API --> MT
+
+    %% FastAPI
+    subgraph FastAPI["FASTAPI API"]
+        direction TB
+        FT[POST /pipeline/trigger -> 202 + pipeline_run_id]
+        FM[GET /morning-notes?manager_id=X -> list]
+        FD[GET /morning-notes/id -> full detail]
+        FS[GET /morning-notes/id/stream -> SSE]
+        FF[POST /morning-notes/id/feedback -> update MAGMA]
+        FH[GET /health -> status db]
+    end
+
+    CB --> FastAPI
+    API --> FastAPI
+    MT --> FastAPI
+
+    %% Celery Worker Pool
+    subgraph Worker["CELERY WORKER POOL"]
+        CW[run_daily_pipeline task<br/>idempotent, retryable<br/>-> Fetches portfolio tickers from DB<br/>-> Creates MorningNote status=pending<br/>-> Invokes LangGraph pipeline multi-ticker<br/>-> On success: status=completed persist note+rec<br/>-> On failure: status=failed flags in MorningNote]
+    end
+
+    FastAPI --> Worker
+
+    %% LangGraph StateGraph
+    subgraph LG["LANGGRAPH STATEGRAPH Multi-Ticker"]
+        direction TB
+        MA[MacroAgent]
+        subgraph FanOut["FAN-OUT LangGraph Send API<br/>runs per ticker in parallel"]
+            CA[CompanyAgent<br/>per ticker]
+            QA[QuantAgent<br/>per ticker]
+            RA[RiskAgent<br/>per ticker]
+        end
+        CN[Consolidate Node<br/>portfolio sector weights<br/>concentration flags<br/>stale data flags]
+        EA[EditorAgent<br/>consolidated note +<br/>per-ticker recommendations]
+        END1((END))
+
+        MA --> FanOut
+        FanOut --> CN
+        CN --> EA
+        EA --> END1
+    end
+
+    Worker --> LG
+
+    %% Data Layer
+    subgraph DL["DATA LAYER"]
+        direction TB
+        PG1[PostgreSQL 16 pgvector<br/>embeddings<br/>HNSW index]
+        PG2[PostgreSQL 18 Apache AGE<br/>relational schema<br/>MAGMA graphs]
+        RD[Redis 7.2 AOF<br/>Celery broker<br/>SSE pub/sub]
+    end
+
+    LG --> DL
+
+    classDef trigger fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef worker fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
+    classDef langgraph fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px;
+    classDef datalayer fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+
+    class CB,API,MT trigger;
+    class CW worker;
+    class MA,CA,QA,RA,CN,EA langgraph;
+    class PG1,PG2,RD datalayer;
 ```
 
 ---
@@ -377,36 +372,175 @@ logger.info("macro_agent_start", extra={
 
 ## Deployment Architecture (AWS)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                          AWS REGION                             │
-│                                                                 │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐     │
-│  │   RDS PG18   │    │  ElastiCache │    │   ECS Cluster│     │
-│  │  (Multi-AZ)  │    │   Redis AOF  │    │              │     │
-│  │  + age, vec  │    │              │    │ ┌──────────┐ │     │
-│  │  Read Replicas◄───┤              │    │ │ FastAPI  │ │     │
-│  └──────────────┘    └──────────────┘    │ │ Task Def │ │     │
-│        │                    ▲            │ └──────────┘ │     │
-│        │                    │            │ ┌──────────┐ │     │
-│        └────────────────────┘            │ │ Celery   │ │     │
-│                                         │ │ Worker   │ │     │
-│  ┌──────────────┐                        │ └──────────┘ │     │
-│  │ Secrets Mgr  │                        │ ┌──────────┐ │     │
-│  │ - API Keys   │                        │ │ Celery   │ │     │
-│  │ - DB URLs    │                        │ │ Beat     │ │     │
-│  └──────────────┘                        │ └──────────┘ │     │
-│                                          └──────────────┘     │
-│                                                                 │
-│  ┌──────────────┐    ┌──────────────┐                          │
-│  │  CloudWatch  │    │  LangSmith   │                          │
-│  │  Logs/Met.   │    │  Traces      │                          │
-│  └──────────────┘    └──────────────┘                          │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph AWS["AWS REGION"]
+        subgraph ECS["ECS Cluster"]
+            FT[FastAPI<br/>Task Definition<br/>ALB target 2–10 tasks]
+            CW[Celery Worker<br/>Task Definition<br/>Queue depth 1–20 tasks]
+            CB[Celery Beat<br/>Task Definition<br/>Singleton 1 task]
+        end
+
+        subgraph RDS["RDS PG18<br/>Multi-AZ<br/>+ age, vec<br/>Read Replicas"]
+        end
+
+        subgraph EC["ElastiCache<br/>Redis AOF"]
+        end
+
+        subgraph SM["Secrets Manager<br/>TAVILY_API_KEY<br/>NVIDIA_API_KEY<br/>LANGCHAIN_API_KEY<br/>DATABASE_URL<br/>MIGRATION_DATABASE_URL<br/>REDIS_URL<br/>SECRET_KEY"]
+        end
+    end
+
+    subgraph External["External Services"]
+        CW2[CloudWatch<br/>Logs/Metrics]
+        LS[LangSmith<br/>Traces]
+    end
+
+    RDS -->|Read Replicas| ECS
+    RDS -->|Read Replicas| CW
+    EC -->|Cache| CW
+    SM -->|Secrets| CW
+    SM -->|Secrets| FT
+    ECS --> CW2
+    ECS --> LS
 ```
 
+## Detailed Pipeline Architecture
+
+This diagram shows the complete end-to-end data flow through the FinAgent pipeline, from trigger to storage:
+
+```mermaid
+flowchart TB
+    %% External Triggers
+    subgraph TRIGGERS["External Triggers"]
+        CB[Celery Beat<br/>6:00 AM BRT<br/>Daily schedule]
+        API[API Call<br/>POST /trigger]
+        MT[Manual Trigger<br/>Dashboard]
+    end
+
+    CB --> API
+    API --> MT
+
+    %% FastAPI API Layer
+    subgraph API["FASTAPI API Layer"]
+        direction TB
+        FT[POST /pipeline/trigger<br/>202 + pipeline_run_id]
+        FM[GET /morning-notes?manager_id=X<br/>List notes]
+        FD[GET /morning-notes/id<br/>Full note detail]
+        FS[GET /morning-notes/id/stream<br/>SSE real-time events]
+        FF[POST /morning-notes/id/feedback<br/>Submit manager feedback]
+        FH[GET /health<br/>status db]
+    end
+
+    TRIGGERS --> API
+
+    %% Celery Worker
+    subgraph CW["CELERY WORKER POOL"]
+        direction TB
+        WF1[Fetch tickers<br/>from DB]
+        WF2[Create MorningNote<br/>status=pending]
+        WF3[Run LangGraph<br/>pipeline]
+        WF4[Update status<br/>completed/failed]
+    end
+
+    WF1 --> WF2
+    WF2 --> WF3
+    WF3 --> WF4
+
+    API --> CW
+
+    %% LangGraph Pipeline
+    subgraph LG["LANGGRAPH STATEGRAPH<br/>Multi-Ticker Pipeline"]
+        direction TB
+        MA[MacroAgent<br/>macro news<br/>runs ONCE per portfolio]
+
+        subgraph FO["Fan-out via Send API<br/>runs per ticker in parallel"]
+            CA[CompanyAgent<br/>Tavily company events]
+            QA[QuantAgent<br/>yfinance metrics]
+            RA[RiskAgent<br/>adversarial analysis]
+        end
+
+        CN[Consolidate Node<br/>sector weights<br/>concentration flags<br/>stale data flags]
+
+        EA[EditorAgent<br/>Nemotron 3 Ultra<br/>consolidated note<br/>per-ticker recommendations<br/>confidence scores]
+
+        END1((END))
+
+        MA --> FO
+        FO --> CN
+        CA --> CN
+        QA --> CN
+        RA --> CN
+        CN --> EA
+        EA --> END1
+    end
+
+    CW --> LG
+
+    %% Data Layer
+    subgraph DL["DATA LAYER"]
+        direction TB
+        PG[PostgreSQL 16 + pgvector<br/>+ PostgreSQL 18 + Apache AGE<br/>RLS enabled<br/>Morning notes, recommendations,<br/>companies, portfolios, holdings]
+        RD[Redis 7.2 + AOF<br/>Celery broker<br/>SSE pub/sub]
+    end
+
+    LG --> DL
+
+    %% Observability
+    subgraph OBS["OBSERVABILITY"]
+        CW2[CloudWatch<br/>logs + metrics<br/>alarms]
+        LS[LangSmith<br/>agent traces]
+    end
+
+    CW --> CW2
+    LG --> LS
+```
+
+## Agent Pipeline Detail
+
+This diagram shows the agent-level flow in detail — how each agent processes data and passes it to the next:
+
+```mermaid
+flowchart TB
+    subgraph Agents["Agent Pipeline Detail"]
+        direction TB
+        
+        %% Macro Agent
+        MA[MacroAgent<br/>Tavily search<br/>macro news<br/>Brazil]
+        
+        %% Fan-out per ticker
+        subgraph FO["Fan-out per ticker<br/>Send API"]
+            CA[CompanyAgent<br/>Tavily search<br/>company events]
+            QA[QuantAgent<br/>yfinance<br/>P/L, EV/EBITDA,<br/>P/VPA, dividend yield]
+            RA[RiskAgent<br/>NVIDIA NIM<br/>adversarial analysis<br/>risk flags]
+        end
+        
+        %% Consolidate
+        CN[Consolidate Node<br/>sector weights<br/>concentration flags<br/>stale data flags]
+        
+        %% Editor
+        EA[EditorAgent<br/>Nemotron 3 Ultra<br/>consolidated morning note<br/>per-ticker recommendations<br/>confidence scores]
+        
+        MA --> FO
+        CA --> CN
+        QA --> CN
+        RA --> CN
+        CN --> EA
+    end
+```
+
+### Agent Details
+
+| Agent | Input | Processing | Output |
+|-------|-------|------------|--------|
+| **MacroAgent** | Tavily (macro news Brazil) | NVIDIA NIM summarization | Macro context (headline, summary, sources) |
+| **CompanyAgent** | Tavily (per ticker) | NVIDIA NIM extraction | Company events (title, date, summary) |
+| **QuantAgent** | Yfinance (per ticker) | Python calculations | P/L, EV/EBITDA, P/VPA, dividend yield, dev_ibov |
+| **RiskAgent** | NVIDIA NIM (per ticker) | Adversarial analysis | Risk flags (probability, impact, description) |
+| **Consolidate Node** | All per-ticker outputs | Sector weights, concentration flags, stale data | Portfolio-level aggregations |
+| **EditorAgent** | All per-ticker outputs | Nemotron 3 Ultra synthesis | Consolidated morning note + recommendations |
+
 ### ECS Services
-| Service | Task Definition | Scaling |
 |---------|----------------|---------|
 | FastAPI | `finagent-api` | ALB target; 2–10 tasks |
 | Celery Worker | `finagent-worker` | Queue depth; 1–20 tasks |

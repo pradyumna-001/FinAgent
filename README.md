@@ -6,16 +6,73 @@
 
 FinAgent runs a **multi-ticker pipeline** that produces **one consolidated morning note per portfolio per day**, with per-ticker recommendations in structured JSONB:
 
-```
-MacroAgent → reads macro news (Selic, inflation, FX, Fed impact on Brazil) — runs ONCE per portfolio
-    ↓
-Fan-out: CompanyAgent, QuantAgent, RiskAgent run in parallel PER TICKER (LangGraph Send API)
-    ↓
-Consolidate Node → computes portfolio sector weights, concentration flags, stale data flags
-    ↓
-EditorAgent → consolidates into single morning note + per-ticker recommendations + confidence scores
-```
+```mermaid
+flowchart TB
+    %% External Triggers
+    subgraph TRIGGERS["What starts it"]
+        CB[Celery Beat<br/>Daily 6 AM BRT]
+        API[API Trigger<br/>Manual start]
+        MT[Manual Trigger<br/>From dashboard]
+    end
 
+    CB --> API
+    API --> MT
+
+    %% Workers
+    subgraph CW["Workers"]
+        CW[Celery Worker<br/>Runs the pipeline]
+    end
+
+    TRIGGERS --> CW
+
+    %% AI Pipeline
+    subgraph LG["AI Pipeline<br/>Analyzes each stock"]
+        direction TB
+        MA[Macro news<br/>Market context]
+        FO[Company news,<br/>Stock metrics,<br/>Risk analysis<br/>per ticker]
+        CN[Portfolio summary<br/>Sector weights<br/>Risk flags]
+        EA[Morning note<br/>Buy/Sell/Keep<br/>per stock]
+        END1((Done))
+        
+        MA --> FO
+        FO --> CN
+        CN --> EA
+        EA --> END1
+    end
+
+    CW --> LG
+
+    %% Data Storage
+    subgraph DL["Data Storage"]
+        PG[PostgreSQL<br/>Notes + data]
+        RD[Redis<br/>Cache + messages]
+    end
+
+    LG --> DL
+
+    %% Observability
+    subgraph OBS["Monitoring"]
+        CW2[CloudWatch<br/>System health]
+        LS[LangSmith<br/>AI traces]
+    end
+
+    CW --> CW2
+    LG --> LS
+
+    %% Styling
+    classDef trigger fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef api fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
+    classDef worker fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px;
+    classDef langgraph fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    classDef datalayer fill:#fce4ec,stroke:#880e4f,stroke-width:2px;
+    classDef obs fill:#f1f8e9,stroke:#33691e,stroke-width:2px;
+
+    class CB,API,MT trigger;
+    class CW worker;
+    class MA,CA,QA,RA,CN,EA langgraph;
+    class PG,RD datalayer;
+    class CW2,LS obs;
+```
 **Output per portfolio**: Single Portuguese morning note + structured per-ticker recommendations (buy / sell / keep) with justification and confidence scores per section. Portfolio-level risk flags (sector concentration, stale data) included.
 
 ## Architecture Highlights

@@ -40,12 +40,27 @@ FinAgent is a multi-agent AI financial analyst for Brazilian asset managers. Gen
 
 ### Multi-Ticker Agent Pipeline
 
-```
-MacroAgent (runs once) ──► Fan-out per ticker (Send API) ──► Consolidate ──► EditorAgent
-                              │                    │
-                              ▼                    ▼
-                    CompanyAgent, QuantAgent, RiskAgent
-                    (parallel per ticker)
+```mermaid
+flowchart LR
+    MA[MacroAgent<br/>runs once]:::runonce
+    FO[Fan-out per ticker<br/>Send API]
+    CA[CompanyAgent<br/>parallel per ticker]
+    QA[QuantAgent<br/>parallel per ticker]
+    RA[RiskAgent<br/>parallel per ticker]
+    CN[Consolidate<br/>sector weights<br/>concentration flags<br/>stale data flags]
+    EA[EditorAgent<br/>consolidated note +<br/>per-ticker recommendations]
+
+    MA --> FO
+    FO --> CA
+    FO --> QA
+    FO --> RA
+    CA --> CN
+    QA --> CN
+    RA --> CN
+    CN --> EA
+
+    classDef runonce fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    class MA runonce;
 ```
 
 - **MacroAgent**: Runs ONCE per portfolio → `macro_context: {"global": MacroOutput}`
