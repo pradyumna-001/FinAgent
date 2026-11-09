@@ -21,9 +21,9 @@ async def test_editor_agent_happy_path() -> None:
     """mock summarize_nemotron returning valid JSON; assert morning_note, recommendation, confidence_scores populated"""
     with patch("app.agents.editor.summarize_nemotron") as MockSummarize:
         MockSummarize.return_value = (
-            '{"morning_note": "Bom dia, mercado estável.", '
-            '"recommendation": {"action": "keep", "justification": "Neutro", "confidence": 0.7}, '
-            '"confidence_scores": {"macro": 0.8, "company": 0.7, "quant": 0.9, "risk": 0.6, "overall": 0.75}}'
+            '{"morning_note": "### PETR4: Bom dia, mercado estável.", '
+            '"recommendations": {"PETR4": {"action": "keep", "justification": "Neutro", "confidence": 0.7}}, '
+            '"confidence_scores": {"PETR4": {"macro": 0.8, "company": 0.7, "quant": 0.9, "risk": 0.6, "overall": 0.75}}}'
         )
         state = await editor_agent_node(make_state())
         # Morning note now has ### TICKER header
@@ -66,8 +66,8 @@ async def test_editor_agent_confidence_penalties_applied() -> None:
     with patch("app.agents.editor.summarize_nemotron") as MockSummarize:
         MockSummarize.return_value = (
             '{"morning_note": "Bom dia.", '
-            '"recommendation": {"action": "buy", "justification": "Forte", "confidence": 0.8}, '
-            '"confidence_scores": {"macro": 0.9, "company": 0.8, "quant": 0.7, "risk": 0.6, "overall": 0.75}}'
+            '"recommendations": {"PETR4": {"action": "buy", "justification": "Forte", "confidence": 0.8}}, '
+            '"confidence_scores": {"PETR4": {"macro": 0.9, "company": 0.8, "quant": 0.7, "risk": 0.6, "overall": 0.75}}}'
         )
         state = make_state()
         state["flags"].append(
