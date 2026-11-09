@@ -109,6 +109,11 @@ async def editor_agent_node(state: AgentState) -> dict:
         data_freshness=state.get("data_freshness", {})
     )
 
+    # Output containers populated in all branches
+    recommendations: dict[str, dict] = {}
+    confidence_scores: dict[str, dict[str, float]] = {}
+    morning_note_sections: list[str] = []
+
     raw_text = await summarize_nemotron(
         system=EDITOR_PROMPTS.system,
         user=user_prompt
@@ -122,9 +127,6 @@ async def editor_agent_node(state: AgentState) -> dict:
                 message="Summarization failed for editor"
             )
         )
-        recommendations: dict[str, dict] = {}
-        confidence_scores: dict[str, dict[str, float]] = {}
-        morning_note_sections: list[str] = []
 
         for t in tickers:
             recommendations[t] = {}
@@ -178,10 +180,6 @@ async def editor_agent_node(state: AgentState) -> dict:
                 message="Failed to parse EditorAgent JSON response"
             )
         )
-
-        recommendations: dict[str, dict] = {}
-        confidence_scores: dict[str, dict[str, float]] = {}
-        morning_note_sections: list[str] = []
 
         for t in tickers:
             recommendations[t] = {}
@@ -242,10 +240,6 @@ async def editor_agent_node(state: AgentState) -> dict:
                 message=f"Missing recommendations/confidence_scores for tickers: {', '.join(missing_tickers)}"
             )
         )
-
-    recommendations: dict[str, dict] = {}
-    confidence_scores: dict[str, dict[str, float]] = {}
-    morning_note_sections: list[str] = []
 
     for t in tickers:
         if t in parsed.get("recommendations", {}) and t in parsed.get("confidence_scores", {}):
