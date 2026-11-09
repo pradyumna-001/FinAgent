@@ -53,7 +53,7 @@ flowchart TB
         end
 
         %% Consolidate
-        CN[Consolidate Node<br/>portfolio sector weights<br/>concentration flags >40%<br/>stale data flags >24h]
+        CN[Consolidate Node<br/>portfolio sector weights<br/>concentration flags 40%+<br/>stale data flags 24h+]
 
         %% Editor
         EA[EditorAgent<br/>Nemotron 3 Ultra<br/>consolidated Portuguese note<br/>per-ticker recommendations<br/>confidence scores]
