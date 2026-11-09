@@ -171,24 +171,23 @@ uv run pytest -v
 
 ## Current Status
 
-**Phase 1-3 Complete (Weeks 1-3)**: Foundation + Base Agents + Multi-Ticker Graph Pipeline
-- ✅ Repository, Docker, DB schema, RLS, CI/CD
-- ✅ Typed AgentState, 5 agents, LangGraph pipeline with parallel fan-out
-- ✅ Multi-ticker architecture: dict-keyed state, Send API fan-out, Consolidate node
+**Completed (Issues #1–#124)**:
+- ✅ Foundation: Repository, Docker, DB schema, RLS, CI/CD
+- ✅ Base Agents: Typed AgentState, 5 agents, LangGraph pipeline with parallel fan-out
+- ✅ **Multi-Ticker Architecture** (Issue #124): Dict-keyed AgentState, Send API fan-out, Consolidate node
 - ✅ Unit + integration tests (162 total), CI green (unit, integration, standalone graph test)
 - ✅ App role split, HNSW reindex operator, CI integration coverage
-- ✅ Test migration strategy (incremental adapter)
 
-**Phase 3 Remaining (Week 4+)**:
-- **#125** — Agents: Per-Ticker Rewrites (Company/Quant/Risk/Editor for true multi-ticker)
-- **#126** — Pipeline completion (Persist/Send/Approval/Finalize)
-- **#127** — Worker & API: Portfolio-level trigger
-- **#128** — SSE events (parallel)
-- **#129** — Test migration: Incremental adapter strategy
+**In Progress / Next (Issues #125–#129)**:
+- **#125** — Agents: Per-Ticker Rewrites (Company/Quant/Risk/Editor read `current_ticker` from fan-out state)
+- **#126** — Pipeline completion (Persist/Send/Approval/Finalize nodes)
+- **#127** — Worker & API: Portfolio-level trigger (fetch tickers from DB, single graph run per portfolio)
+- **#128** — SSE events (parallel per-ticker agent updates)
+- **#129** — Test migration: Incremental adapter strategy (complete adapter cleanup)
 
-**Phase 4+**: MAGMA memory, observability, AWS deploy, manager onboarding, frontend
+**Planned (Issues #130+)**: MAGMA memory, observability, AWS deploy, manager onboarding, frontend
 
-See [`docs/issues.md`](docs/issues.md) for full 30-issue, 8-week plan.
+See [GitHub Issues](https://github.com/pradyumna-001/FinAgent/issues) for the full roadmap.
 
 ## Based On
 
