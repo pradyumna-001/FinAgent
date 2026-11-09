@@ -3,17 +3,19 @@ from unittest.mock import patch
 import pytest
 
 from app.agents.risk import risk_agent_node
-from app.graph.state import create_initial_state
+from app.graph.state import create_initial_state_multi
 from app.utils.flags import Severity
 
 
 def make_state():
-    return create_initial_state(
+    state = create_initial_state_multi(
         manager_id=1,
-        company_ticker="PETR4",
+        company_tickers=["PETR4"],
         pipeline_run_id="run-1",
         morning_note_id="note-1"
     )
+    state["current_ticker"] = "PETR4"
+    return state
 
 
 @pytest.mark.asyncio
