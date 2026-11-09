@@ -35,7 +35,6 @@ async def risk_agent_node(state: AgentState) -> dict:
 
     ticker = state["current_ticker"]
 
-
     user_prompt = RISK_PROMPTS.build_user_prompt(
         macro_context=state.get("macro_context", {}).get("global"),
         company_events=state.get("company_events", {}).get(ticker, []),

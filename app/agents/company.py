@@ -38,7 +38,7 @@ async def company_agent_node(state: AgentState) -> dict:
     new_flags = []
 
     ticker = state["current_ticker"]
-    
+
     try:
         tavily = TavilyService(api_key=settings.TAVILY_API_KEY)
     except TavilyConfigError as exc:
