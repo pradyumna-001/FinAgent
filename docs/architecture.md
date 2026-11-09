@@ -24,12 +24,12 @@ flowchart TD
     %% FastAPI
     subgraph FastAPI["FASTAPI API"]
         direction TB
-        FT[POST /pipeline/trigger → 202 + pipeline_run_id]
-        FM[GET /morning-notes?manager_id=X → list]
-        FD[GET /morning-notes/{id} → full detail]
-        FS[GET /morning-notes/{id}/stream → SSE]
-        FF[POST /morning-notes/{id}/feedback → update MAGMA]
-        FH[GET /health → {status, db}]
+        FT[POST /pipeline/trigger -> 202 + pipeline_run_id]
+        FM[GET /morning-notes?manager_id=X -> list]
+        FD[GET /morning-notes/id -> full detail]
+        FS[GET /morning-notes/id/stream -> SSE]
+        FF[POST /morning-notes/id/feedback -> update MAGMA]
+        FH[GET /health -> status db]
     end
 
     CB --> FastAPI
@@ -38,7 +38,7 @@ flowchart TD
 
     %% Celery Worker Pool
     subgraph Worker["CELERY WORKER POOL"]
-        CW[run_daily_pipeline() task<br/>idempotent, retryable<br/>→ Fetches portfolio tickers from DB<br/>→ Creates MorningNote status=pending<br/>→ Invokes LangGraph pipeline multi-ticker<br/>→ On success: status=completed persist note+rec<br/>→ On failure: status=failed flags in MorningNote]
+        CW[run_daily_pipeline task<br/>idempotent, retryable<br/>-> Fetches portfolio tickers from DB<br/>-> Creates MorningNote status=pending<br/>-> Invokes LangGraph pipeline multi-ticker<br/>-> On success: status=completed persist note+rec<br/>-> On failure: status=failed flags in MorningNote]
     end
 
     FastAPI --> Worker
