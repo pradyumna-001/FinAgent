@@ -2,7 +2,7 @@
 
 ## System Overview
 
-FinAgent is a multi-agent AI financial analyst that generates daily morning notes and buy/sell/neutral recommendations for Brazilian equities (B3). It runs automatically every day at 6:00 AM BRT via Celery Beat, processing all active managers and their portfolio companies.
+FinAgent is a multi-agent AI financial analyst that generates daily morning notes and buy/sell/neutral recommendations for Brazilian equities (B3). It runs automatically every day at 6:00 AM BRT via Celery Beat, processing all active managers and their portfolios.
 
 **Target Users**: Asset management professionals  
 **Pricing**: To be determined (personal project, not yet commercialized)
@@ -38,8 +38,9 @@ FinAgent is a multi-agent AI financial analyst that generates daily morning note
 │                     CELERY WORKER POOL                          │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │ run_daily_pipeline() task (idempotent, retryable)       │   │
+│  │   → Fetches portfolio tickers from DB                   │   │
 │  │   → Creates MorningNote (status=pending)                │   │
-│  │   → Invokes LangGraph pipeline                          │   │
+│  │   → Invokes LangGraph pipeline (multi-ticker)           │   │
 │  │   → On success: status=completed, persist note+rec      │   │
 │  │   → On failure: status=failed, flags in MorningNote     │   │
 │  └─────────────────────────────────────────────────────────┘   │
@@ -47,24 +48,33 @@ FinAgent is a multi-agent AI financial analyst that generates daily morning note
           │
           ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    LANGGRAPH STATEGRAPH                         │
+│                    LANGGRAPH STATEGRAPH (Multi-Ticker)         │
 │  START                                                           │
 │    │                                                             │
 │    ▼                                                             │
-│  MacroAgent ──┬─────────────────────────────────────┐          │
-│               │                                     │          │
-│               ▼                                     ▼          │
-│         CompanyAgent                          QuantAgent        │
-│               │                                     │          │
-│               └───────────────┬─────────────────────┘          │
-│                               ▼                                 │
-│                          RiskAgent                              │
-│                               │                                 │
-│                               ▼                                 │
-│                         EditorAgent                             │
-│                               │                                 │
-│                               ▼                                 │
-│                              END                                │
+│  MacroAgent ──────────────────────────────────────────────────┐  │
+│    │                                                            │  │
+│    ▼                                                            ▼  │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │ FAN-OUT (LangGraph Send API) — runs per ticker in parallel │  │
+│  │  CompanyAgent  │  QuantAgent  │  RiskAgent                   │  │
+│  │  (per ticker)  │  (per ticker)  │  (per ticker)              │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│    │                                    │                          │
+│    └────────────────┬───────────────────┘                          │
+│                     ▼                                              │
+│              Consolidate Node                                       │
+│         (portfolio sector weights,                                 │
+│          concentration flags,                                       │
+│          stale data flags)                                         │
+│                     │                                              │
+│                     ▼                                              │
+│              EditorAgent                                           │
+│         (consolidated note +                                       │
+│          per-ticker recommendations)                               │
+│                     │                                              │
+│                     ▼                                              │
+│                    END                                             │
 └─────────────────────────────────────────────────────────────────┘
           │
           ▼
@@ -89,72 +99,104 @@ FinAgent is a multi-agent AI financial analyst that generates daily morning note
 - **Tools**: Tavily API (domains: bcb.gov.br, ibge.gov.br, br.reuters.com, bloomberg.com.br)
 - **LLM**: NVIDIA NIM (primary + fallback) for extraction/summary
 - **Output**: `MacroOutput` (headline, summary, sources, fetched_at)
-- **State updates**: `macro_context`, `data_freshness["macro"]`, `flags`
+- **State updates**: `macro_context: {"global": macro_output}`, `data_freshness["macro"]`, `flags`
 
 ### 2. CompanyAgent (`app/agents/company.py`)
-- **Input**: `state["company_ticker"]`
+- **Input**: `state["current_ticker"]` (injected by fan-out) + `state["company_tickers"]`
 - **Tools**: Tavily API (domains: cvm.gov.br, infomoney.com.br, globo.com/valor-economico)
 - **LLM**: NVIDIA NIM for extraction
 - **Output**: `list[CompanyEvent]` (title, date, source, summary)
-- **State updates**: `company_events`, `data_freshness["company"]`, `flags`
+- **State updates**: `company_events: {ticker: [...]}`, `data_freshness: {ticker: now}`, `flags`
 
 ### 3. QuantAgent (`app/agents/quant.py`)
-- **Input**: `state["company_ticker"]`
+- **Input**: `state["current_ticker"]` (injected by fan-out) + `state["company_tickers"]`
 - **Tools**: yfinance (Yahoo Finance) — Python does ALL calculations
 - **LLM**: NVIDIA NIM ONLY for interpretation (never calculation)
 - **Critical Rule**: Verify `data_freshness` BEFORE calculation; if > 24h → `DataFlag` + no calculation
 - **Calculations**: P/L, EV/EBITDA, P/VPA, dividend yield, variação vs IBOV
 - **Output**: `QuantOutput` (pl, ev_ebitda, p_vpa, dividend_yield, dev_ibov, fetched_at, market_time)
-- **State updates**: `quant_metrics`, `data_freshness["quant"]`, `flags`
+- **State updates**: `quant_metrics: {ticker: QuantOutput}`, `data_freshness: {ticker: now}`, `flags`
 
 ### 4. RiskAgent (`app/agents/risk.py`)
-- **Input**: `macro_context`, `company_events`, `quant_metrics`, `flags` from state
+- **Input**: `state["current_ticker"]` + reads per-ticker data from merged state:
+  - `company_events = state["company_events"].get(ticker, [])`
+  - `quant_metrics = state["quant_metrics"].get(ticker)`
+  - `macro_context = state["macro_context"].get("global")`
 - **Tools**: NONE — only analyzes upstream outputs
 - **LLM**: NVIDIA NIM with adversarial prompt: *"Você é um analista cético. Encontre inconsistências, riscos ignorados e vieses"*
 - **Output**: `list[RiskFlag]` (probability, impact, description, severity)
-- **State updates**: `risk_flags`, `data_freshness["risk"]`, `flags` (includes parse drops)
+- **State updates**: `risk_flags: {ticker: [...]}`, `data_freshness: {ticker: now}`, `flags` (includes parse drops)
 - **Parser**: `app/utils/risk_parse.py::parse_risk_json()` returns `(valid_flags, dropped_count)`
 
-### 5. EditorAgent (`app/agents/editor.py`)
-- **Input**: All upstream outputs + `flags`
+### 5. Consolidate Node (`app/agents/consolidate.py`) — NEW
+- **Input**: Merged per-ticker state + `company_tickers` list
+- **Tools**: SQLAlchemy — queries `Company.sector` for tickers
+- **Computes**:
+  - `sector_weights` — from portfolio holdings × company sectors
+  - `portfolio_risk_flags` — sector concentration > 40%
+  - `portfolio_data_flags` — stale data detection (>24h)
+- **State updates**: `sector_weights`, `portfolio_risk_flags`, `portfolio_data_flags`, `data_freshness["portfolio"]`
+
+### 6. EditorAgent (`app/agents/editor.py`)
+- **Input**: Full merged state (all per-ticker dicts + portfolio fields)
 - **LLM**: Nemotron 3 Ultra (single model, no fallback)
 - **Prompt**: Portuguese system prompt; JSON-only response
+- **Execution**: Loops through tickers with semaphore (max 3 concurrent)
 - **Output structure**:
   ```json
   {
-    "morning_note": "string (Portuguese, full note)",
-    "recommendation": {"action": "buy|sell|keep", "justification": "string", "confidence": float},
-    "confidence_scores": {"macro": float, "company": float, "quant": float, "risk": float, "overall": float}
+    "morning_note": "string (Portuguese, full consolidated note with per-ticker sections)",
+    "recommendations": {"PETR4": {"action": "buy", "justification": "...", "confidence": 0.8}, ...},
+    "confidence_scores": {"PETR4": {"macro": 0.9, "company": 0.8, "quant": 0.7, "risk": 0.6, "overall": 0.75}, ...}
   }
   ```
 - **Post-processing**: `apply_confidence_penalties()` reduces scores for flagged sections (< 0.5)
 - **Fail Visible**: Prepends `⚠️ Aviso: ...` warnings to morning note text
-- **State updates**: `morning_note`, `recommendation`, `confidence_scores`, `data_freshness["editor"]`, `flags`
+- **State updates**: `morning_note`, `recommendations`, `confidence_scores`, `data_freshness["editor"]`, `flags`
 
 ---
 
 ## State Management
 
-### AgentState (TypedDict)
+### AgentState (TypedDict) — Multi-Ticker
 ```python
 class AgentState(TypedDict):
+    # Run identifiers
     pipeline_run_id: str
     morning_note_id: str
     manager_id: int
-    company_ticker: str
-    macro_context: MacroOutput | None
-    company_events: list[CompanyEvent]
-    quant_metrics: QuantOutput | None
-    risk_flags: list[RiskFlag]
+    
+    # Portfolio tickers
+    company_tickers: list[str]  # e.g., ["PETR4", "VALE3", "ITUB4"]
+    
+    # Per-ticker data — merge_dicts reducer (shallow merge by key)
+    macro_context: Annotated[dict[str, MacroOutput], merge_dicts]              # key = "global"
+    company_events: Annotated[dict[str, list[CompanyEvent]], merge_dicts]
+    quant_metrics: Annotated[dict[str, QuantOutput | None], merge_dicts]
+    risk_flags: Annotated[dict[str, list[RiskFlag]], merge_dicts]
+    
+    # Portfolio-level (computed by Consolidate node)
+    portfolio_risk_flags: list[RiskFlag]
+    portfolio_data_flags: list[DataFlag]
+    sector_weights: dict[str, float]
+    
+    # Editor output (consolidated)
     morning_note: str | None
-    recommendation: Recommendation | None
-    confidence_scores: dict[str, float]
-    data_freshness: Annotated[dict[str, datetime], merge_dicts]
+    recommendations: Annotated[dict[str, RecommendationPayload], merge_dicts]
+    confidence_scores: Annotated[dict[str, dict[str, float]], merge_dicts]
+    
+    # Shared/reducer fields
+    data_freshness: Annotated[dict[str, datetime], merge_dicts]  # per-ticker + "macro" + "portfolio"
     flags: Annotated[list[DataFlag], add]
+    
+    # Persistence/output
+    recommendation_id: int | None   # Single MorningNote ID
+    manager_decision: str | None
+    decision_channel: str | None
 ```
 
 ### Reducers (for parallel execution)
-- `merge_dicts(left, right)` → `{**left, **right}` (dict union)
+- `merge_dicts(left, right)` → `{**left, **right}` (dict union) — used for all per-ticker dict fields
 - `operator.add` → list concatenation for `flags`
 
 ### Validation
@@ -208,25 +250,26 @@ portfolios (gestor_id FK, empresa_id FK, ...)
 -- Portfolio holdings (positions)
 portfolio_holdings (portfolio_id FK, empresa_id FK, quantity, avg_price, ...)
 
--- Morning Notes (output)
+-- Morning Notes (output — one per portfolio per day)
 morning_notes (
   id PK,
   pipeline_run_id UUID,
   morning_note_id UUID,
   gestor_id FK,
-  empresa_id FK,
+  portfolio_id FK,
   data DATE,
   conteudo TEXT,
-  confidence_scores JSONB,
+  confidence_scores JSONB,  -- per-ticker: {"PETR4": {...}, "VALE3": {...}}
   data_freshness JSONB,
   flags JSONB[],
   status VARCHAR -- pending|generating|completed|failed
 )
 
--- Recommendations (structured)
+-- Recommendations (structured, per-ticker)
 recommendations (
   id PK,
   morning_note_id FK,
+  empresa_id FK,
   acao VARCHAR, -- buy|sell|keep
   justificativa TEXT,
   confianca FLOAT
@@ -245,7 +288,7 @@ feedback (
 ```
 
 ### Indexes
-- B-tree composite: `(gestor_id, empresa_id, data)` on morning_notes
+- B-tree composite: `(gestor_id, portfolio_id, data)` on morning_notes
 - Partial index: `(data) WHERE status = 'completed'`
 - HNSW index: `embedding` column on morning_notes (pgvector)
 
@@ -275,7 +318,8 @@ Policies enforce `gestor_id = current_setting('app.manager_id')::int`.
 ### LangSmith (Agent Traces)
 - Every pipeline run traced with tags:
   - `gestor_id:{manager_id}`
-  - `empresa:{company_ticker}`
+  - `portfolio_id:{portfolio_id}`
+  - `tickers:["PETR4","VALE3"]`
   - `data:{YYYY-MM-DD}`
   - `pipeline_run_id:{uuid}`
   - `morning_note_id:{uuid}`
@@ -316,15 +360,16 @@ logger.info("macro_agent_start", extra={
 | Job | Steps | Services |
 |-----|-------|----------|
 | **unit-tests** | ruff, mypy, pytest tests/unit | None |
-| **integration-tests** | alembic upgrade heads, pytest tests/integration | postgres (pgvector/pgvector:pg16) |
+| **standalone-graph-test** | alembic upgrade heads, run_full_graph_test.py | postgres (pgvector/pgvector:pg16) |
+| **integration-tests** | alembic upgrade heads, pytest tests/integration | postgres + redis |
 
 ### Branch Protection
-- `main` requires: `ci/unit-tests`, `ci/integration-tests`
+- `main` requires: `ci/unit-tests`, `ci/standalone-graph-test`
 - No direct pushes to `main` — PR required
 
 ### Test Coverage
-- **Unit**: ~66 tests (freshness, confidence, DataFlag, agents, parsers, utils)
-- **Integration**: ~49 tests (RLS, migration, app role, graph pipeline, reindex, agents)
+- **Unit**: ~113 tests (freshness, confidence, DataFlag, agents, parsers, utils, multi-ticker state)
+- **Integration**: ~49 tests (RLS, migration, app role, graph fan-out, consolidate, reindex, agents)
 - **E2E**: Not yet implemented
 - **Evals**: Not yet implemented (20 market scenarios planned)
 
@@ -416,10 +461,11 @@ finAgent/
 │   │   ├── company.py
 │   │   ├── quant.py
 │   │   ├── risk.py
-│   │   └── editor.py
+│   │   ├── editor.py
+│   │   └── consolidate.py         # Portfolio-level consolidation
 │   ├── graph/
-│   │   ├── state.py               # AgentState, reducers, validation
-│   │   └── pipeline.py            # StateGraph definition
+│   │   ├── state.py               # AgentState, reducers, validation, create_initial_state_multi
+│   │   └── pipeline.py            # StateGraph with fan-out (Send API), checkpointers
 │   ├── memory/                    # MAGMA (planned)
 │   │   ├── semantic.py
 │   │   ├── temporal.py
@@ -455,7 +501,8 @@ finAgent/
 │   ├── init_vector.sql
 │   ├── init_graph.sql
 │   ├── reindex_hnsw.py
-│   └── run_pipeline.py
+│   ├── run_pipeline.py
+│   └── run_full_graph_test.py     # Standalone test runner (Windows-compatible)
 ├── tests/
 │   ├── unit/
 │   ├── integration/
@@ -477,36 +524,23 @@ finAgent/
 
 ## Next Phases
 
-### Phase 1 Complete (Weeks 1-3) ✅
-- Repository, Docker, DB schema, RLS, CI/CD
-- AgentState, 5 agents, LangGraph pipeline
-- Unit + integration tests, CI green
+### Completed (Issues #1–#124)
+- ✅ Foundation: Repository, Docker, DB schema, RLS, CI/CD
+- ✅ Base Agents: Typed AgentState, 5 agents, LangGraph pipeline with parallel fan-out
+- ✅ **Multi-Ticker Architecture** (Issue #124): Dict-keyed AgentState, Send API fan-out, Consolidate node
+- ✅ Unit + integration tests (162 total), CI green (unit, integration, standalone graph test)
+- ✅ App role split, HNSW reindex operator, CI integration coverage
 
-### Phase 2 (Weeks 4-5) — In Progress
-- #03b App role split + dual DATABASE_URL ✅
-- #03c HNSW reindex operator ✅
-- #05d CI integration coverage ✅
-- #04 FastAPI endpoints (health, trigger, SSE) ✅
-- #19 Celery Beat scheduler (planned)
-- #20 Atomic writes (planned)
-- #21 SSE real-time (planned)
-- #22 Pipeline integration tests (planned)
+### In Progress / Next (Issues #125–#129)
+- **#125** — Agents: Per-Ticker Rewrites (Company/Quant/Risk/Editor read `current_ticker` from fan-out state)
+- **#126** — Pipeline completion (Persist/Send/Approval/Finalize nodes)
+- **#127** — Worker & API: Portfolio-level trigger (fetch tickers from DB, single graph run per portfolio)
+- **#128** — SSE events (parallel per-ticker agent updates)
+- **#129** — Test migration: Incremental adapter strategy (complete adapter cleanup)
 
-### Phase 3 (Week 4+) — MAGMA
-- #16 Paper study + architecture design
-- #17 Four AGE graphs + unified interface
-- #18 Policy-guided traversal + EditorAgent integration + feedback loop
-
-### Phase 4 (Weeks 6-7) — Observability + Production
-- #23 LangSmith traces
-- #24 CloudWatch metrics/alarms
-- #25 Evals dataset + runner
-- #26 Invariant tests blocking merge
-- #27 AWS RDS + ElastiCache + ECS deploy
-- #28 Manager onboarding (3 managers)
-- #29 Production smoke tests
-
-### Phase 5 (Week 8) — Frontend + Benchmark
-- #30 React + TS frontend (Dashboard, Detail, SSE, Feedback)
-- MAGMA benchmark (vs pgvector baseline)
-- Demo video + final README
+### Planned (Issues #130+)
+- MAGMA memory (4 AGE graphs + policy-guided traversal)
+- Observability (LangSmith alerts, CloudWatch metrics/alarms)
+- AWS deploy (RDS + ElastiCache + ECS)
+- Manager onboarding (3 gestores)
+- Frontend (Dashboard, Detail, SSE, Feedback)
