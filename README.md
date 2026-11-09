@@ -7,15 +7,102 @@
 FinAgent runs a **multi-ticker pipeline** that produces **one consolidated morning note per portfolio per day**, with per-ticker recommendations in structured JSONB:
 
 ```mermaid
-flowchart LR
-    MA[MacroAgent<br/>reads macro news<br/>Selic, inflation, FX, Fed<br/>runs ONCE per portfolio]
-    FO[Fan-out: CompanyAgent<br/>QuantAgent, RiskAgent<br/>parallel PER TICKER<br/>LangGraph Send API]
-    CN[Consolidate Node<br/>portfolio sector weights<br/>concentration flags<br/>stale data flags]
-    EA[EditorAgent<br/>consolidated morning note<br/>per-ticker recommendations<br/>confidence scores]
+flowchart TB
+    %% External Triggers
+    subgraph TRIGGERS["External Triggers"]
+        CB[Celery Beat<br/>6:00 AM BRT<br/>Daily schedule]:::trigger
+        API[API Call<br/>POST /pipeline/trigger<br/>Manual trigger]:::trigger
+        MT[Manual<br/>Dashboard trigger]:::trigger
+    end
 
-    MA --> FO
-    FO --> CN
-    CN --> EA
+    CB --> API
+    API --> MT
+
+    %% FastAPI API Layer
+    subgraph API["FASTAPI API Layer"]
+        direction TB
+        FT[POST /pipeline/trigger<br/>→ 202 + pipeline_run_id]
+        FM[GET /morning-notes?manager_id=X<br/>→ List notes]
+        FD[GET /morning-notes/{id}<br/>→ Full note detail]
+        FS[GET /morning-notes/{id}/stream<br/>→ SSE real-time events]
+        FF[POST /morning-notes/{id}/feedback<br/>→ Submit manager feedback]
+        FH[GET /health<br/>→ {status, db}]
+    end
+
+    TRIGGERS --> API
+
+    %% Celery Worker
+    subgraph CW["CELERY WORKER POOL"]
+        direction TB
+        WF[run_daily_pipeline() task<br/>idempotent, retryable<br/>→ Fetches portfolio tickers from DB<br/>→ Creates MorningNote (status=pending)<br/>→ Invokes LangGraph pipeline<br/>→ On success: status=completed<br/>→ On failure: status=failed + flags]
+    end
+
+    API --> CW
+
+    %% LangGraph Pipeline
+    subgraph LG["LANGGRAPH STATEGRAPH<br/>Multi-Ticker Pipeline"]
+        direction TB
+        %% Macro Agent
+        MA[MacroAgent<br/>→ macro news<br/>Selic, inflation, FX<br/>runs ONCE per portfolio]
+
+        %% Fan-out agents
+        subgraph FO["Fan-out via Send API<br/>runs per ticker in parallel"]
+            CA[CompanyAgent<br/>Tavily → company events<br/>per ticker]
+            QA[QuantAgent<br/>yfinance → P/L, EV/EBITDA,<br/>P/VPA, dividend yield<br/>per ticker]
+            RA[RiskAgent<br/>adversarial NIM →<br/>risk flags per ticker]
+        end
+
+        %% Consolidate
+        CN[Consolidate Node<br/>portfolio sector weights<br/>concentration flags (>40%)<br/>stale data flags (>24h)]
+
+        %% Editor
+        EA[EditorAgent<br/>Nemotron 3 Ultra<br/>consolidated Portuguese note<br/>per-ticker recommendations<br/>confidence scores]
+
+        END1((END))
+
+        MA --> FO
+        FO --> CN
+        CA --> CN
+        QA --> CN
+        RA --> CN
+        CN --> EA
+        EA --> END1
+    end
+
+    CW --> LG
+
+    %% Data Layer
+    subgraph DL["DATA LAYER"]
+        direction TB
+        PG[PostgreSQL 16 + pgvector<br/>+ PostgreSQL 18 + Apache AGE<br/>RLS enabled<br/>Morning notes, recommendations,<br/>companies, portfolios, holdings]
+        RD[Redis 7.2 + AOF<br/>Celery broker<br/>SSE pub/sub]
+    end
+
+    LG --> DL
+
+    %% Observability
+    subgraph OBS["OBSERVABILITY"]
+        CW2[CloudWatch<br/>logs + metrics + alarms]
+        LS[LangSmith<br/>agent traces]
+    end
+
+    CW --> CW2
+    LG --> LS
+
+    %% Styling
+    classDef trigger fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef api fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
+    classDef worker fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px;
+    classDef langgraph fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    classDef datalayer fill:#fce4ec,stroke:#880e4f,stroke-width:2px;
+    classDef obs fill:#f1f8e9,stroke:#33691e,stroke-width:2px;
+
+    class CB,API,MT trigger;
+    class FT,FM,FD,FS,FF,FH api;
+    class WF worker;
+    class MA,CA,QA,RA,CN,EA langgraph;
+    class PG,RD datalayer;
+    class CW2,LS obs;
 ```
 
 **Output per portfolio**: Single Portuguese morning note + structured per-ticker recommendations (buy / sell / keep) with justification and confidence scores per section. Portfolio-level risk flags (sector concentration, stale data) included.
