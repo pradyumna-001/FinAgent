@@ -59,7 +59,7 @@ except ImportError:
     TESTCONTAINERS_AVAILABLE = False
     DockerException = Exception
 
-from app.utils.security import hash_password
+from app.utils.security import hash_password  # noqa: E402
 
 # Windows: psycopg async requires SelectorEventLoop, not ProactorEventLoop
 if sys.platform == "win32":
