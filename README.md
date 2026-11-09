@@ -9,88 +9,51 @@ FinAgent runs a **multi-ticker pipeline** that produces **one consolidated morni
 ```mermaid
 flowchart TB
     %% External Triggers
-    subgraph TRIGGERS["External Triggers"]
-        CB[Celery Beat<br/>6:00 AM BRT]
-        API[API Call<br/>POST /trigger]
-        MT[Manual Trigger]
+    subgraph TRIGGERS["What starts it"]
+        CB[Celery Beat<br/>Daily 6 AM BRT]
+        API[API Trigger<br/>Manual start]
+        MT[Manual Trigger<br/>From dashboard]
     end
 
     CB --> API
     API --> MT
 
-    %% FastAPI API Layer
-    subgraph API["FASTAPI API Layer"]
-        direction TB
-        FT[POST /pipeline/trigger]
-        FM[GET /morning-notes]
-        FD[GET /morning-notes/id]
-        FS[GET /morning-notes/id/stream]
-        FF[POST /feedback]
-        FH[GET /health]
+    %% Workers
+    subgraph CW["Workers"]
+        CW[Celery Worker<br/>Runs the pipeline]
     end
 
-    TRIGGERS --> API
+    TRIGGERS --> CW
 
-    %% Celery Worker
-    subgraph CW["CELERY WORKER POOL"]
+    %% AI Pipeline
+    subgraph LG["AI Pipeline<br/>Analyzes each stock"]
         direction TB
-        WF1[Fetch tickers<br/>from DB]
-        WF2[Create MorningNote<br/>status=pending]
-        WF3[Run LangGraph<br/>pipeline]
-        WF4[Update status<br/>completed/failed]
-    end
-
-    WF1 --> WF2
-    WF2 --> WF3
-    WF3 --> WF4
-
-    API --> CW
-
-    %% LangGraph Pipeline
-    subgraph LG["LANGGRAPH STATEGRAPH<br/>Multi-Ticker Pipeline"]
-        direction TB
-        %% Macro Agent
-        MA[MacroAgent<br/>macro news<br/>Selic, IPCA, FX]
-
-        %% Fan-out agents
-        subgraph FO["Fan-out via Send API<br/>per ticker in parallel"]
-            CA[CompanyAgent<br/>Tavily company events]
-            QA[QuantAgent<br/>yfinance metrics]
-            RA[RiskAgent<br/>adversarial analysis]
-        end
-
-        %% Consolidate
-        CN[Consolidate Node<br/>sector weights<br/>concentration flags<br/>stale data flags]
-
-        %% Editor
-        EA[EditorAgent<br/>Nemotron 3 Ultra<br/>consolidated note<br/>recommendations<br/>confidence scores]
-
-        END1((END))
-
+        MA[Macro news<br/>Market context]
+        FO[Company news,<br/>Stock metrics,<br/>Risk analysis<br/>per ticker]
+        CN[Portfolio summary<br/>Sector weights<br/>Risk flags]
+        EA[Morning note<br/>Buy/Sell/Keep<br/>per stock]
+        END1((Done))
+        
         MA --> FO
         FO --> CN
-        CA --> CN
-        QA --> CN
-        RA --> CN
         CN --> EA
         EA --> END1
     end
 
     CW --> LG
 
-    %% Data Layer
-    subgraph DL["DATA LAYER"]
-        direction TB
-        PG[PostgreSQL 16 + 18<br/>pgvector + Apache AGE<br/>RLS enabled]
-        RD[Redis 7.2 + AOF<br/>Celery broker<br/>SSE pub/sub]
+    %% Data Storage
+    subgraph DL["Data Storage"]
+        PG[PostgreSQL<br/>Notes + data]
+        RD[Redis<br/>Cache + messages]
     end
 
     LG --> DL
 
     %% Observability
-    subgraph OBS["OBSERVABILITY"]
-        CW2[CloudWatch<br/>logs + metrics<br/>alarms]
-        LS[LangSmith<br/>agent traces]
+    subgraph OBS["Monitoring"]
+        CW2[CloudWatch<br/>System health]
+        LS[LangSmith<br/>AI traces]
     end
 
     CW --> CW2
@@ -105,13 +68,11 @@ flowchart TB
     classDef obs fill:#f1f8e9,stroke:#33691e,stroke-width:2px;
 
     class CB,API,MT trigger;
-    class FT,FM,FD,FS,FF,FH api;
-    class WF1,WF2,WF3,WF4 worker;
+    class CW worker;
     class MA,CA,QA,RA,CN,EA langgraph;
     class PG,RD datalayer;
     class CW2,LS obs;
 ```
-
 **Output per portfolio**: Single Portuguese morning note + structured per-ticker recommendations (buy / sell / keep) with justification and confidence scores per section. Portfolio-level risk flags (sector concentration, stale data) included.
 
 ## Architecture Highlights
