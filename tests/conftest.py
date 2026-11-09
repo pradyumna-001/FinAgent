@@ -36,7 +36,7 @@ def _get_test_engine():
                 pass
 
         _test_engine = create_async_engine(
-            "postgresql+asyncpg://finagent:password@localhost:5434/finagent",
+            os.environ.get("DATABASE_URL", DEFAULT_DB_URL_ASYNC),
             echo=False,
             pool_pre_ping=True,
             pool_recycle=300,
@@ -70,6 +70,16 @@ if sys.platform == "win32":
 DEFAULT_DB_URL_ASYNC = "postgresql+asyncpg://finagent:password@localhost:5434/finagent"
 DEFAULT_DB_URL_SYNC = "postgresql+psycopg://finagent:password@localhost:5434/finagent"
 DEFAULT_DB_URL_ADMIN = "postgresql://finagent:password@localhost:5434/finagent"
+
+# Check if workflow already configured database (CI services)
+# If DATABASE_URL/MIGRATION_DATABASE_URL are already set to non-default values,
+# we should use those instead of testcontainers
+_db_url_async = os.environ.get("DATABASE_URL", "")
+_db_url_sync = os.environ.get("MIGRATION_DATABASE_URL", "")
+_workflow_provided_db = (
+    _db_url_async and _db_url_async != DEFAULT_DB_URL_ASYNC
+    and _db_url_sync and _db_url_sync != DEFAULT_DB_URL_SYNC
+)
 
 os.environ.setdefault("DATABASE_URL", DEFAULT_DB_URL_ASYNC)
 os.environ.setdefault("MIGRATION_DATABASE_URL", DEFAULT_DB_URL_SYNC)
@@ -111,8 +121,10 @@ if TESTCONTAINERS_AVAILABLE:
         DOCKER_AVAILABLE = False
 
 
-# Use testcontainers in CI (Linux), existing PostgreSQL locally (Windows)
-USE_TESTCONTAINERS = IN_CI and DOCKER_AVAILABLE
+# Use testcontainers in CI (Linux) ONLY if workflow hasn't already provided a database
+# If DATABASE_URL/MIGRATION_DATABASE_URL are set to non-default values (by workflow services),
+# use those instead of starting testcontainers
+USE_TESTCONTAINERS = IN_CI and DOCKER_AVAILABLE and not _workflow_provided_db
 
 
 @pytest.fixture(scope="session")
