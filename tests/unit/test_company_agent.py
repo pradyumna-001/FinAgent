@@ -5,18 +5,20 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.agents.company import company_agent_node
-from app.graph.state import DataFlag, create_initial_state
+from app.graph.state import DataFlag, create_initial_state_multi
 from app.services.tavily import TavilyArticle, TavilyResult
 from app.utils.flags import Severity
 
 
 def make_state():
-    return create_initial_state(
+    state = create_initial_state_multi(
         manager_id=1,
-        company_ticker="PETR4",
+        company_tickers=["PETR4"],
         pipeline_run_id="run",
         morning_note_id="note"
     )
+    state["current_ticker"] = "PETR4"
+    return state
 
 
 def _tavily_result(articles=None, error=None):
