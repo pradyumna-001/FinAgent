@@ -129,7 +129,6 @@ async def editor_agent_node(state: AgentState) -> dict:
         )
 
         for t in tickers:
-            recommendations[t] = {}
             confidence_scores[t] = {}
             morning_note_sections.append(f"### {t}\n\n[Dados indisponíveis para {t}]")
 
@@ -182,7 +181,6 @@ async def editor_agent_node(state: AgentState) -> dict:
         )
 
         for t in tickers:
-            recommendations[t] = {}
             confidence_scores[t] = {}
             morning_note_sections.append(f"### {t}\n\n[Dados indisponíveis para {t}]")
 
@@ -246,7 +244,6 @@ async def editor_agent_node(state: AgentState) -> dict:
             recommendations[t] = parsed["recommendations"][t]
             confidence_scores[t] = parsed["confidence_scores"][t]
         else:
-            recommendations[t] = {}
             confidence_scores[t] = {}
             morning_note_sections.append(f"### {t}\n\n[Dados indisponíveis para {t}]")
 
