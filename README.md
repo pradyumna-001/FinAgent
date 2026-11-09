@@ -21,12 +21,12 @@ flowchart TB
     %% FastAPI API Layer
     subgraph API["FASTAPI API Layer"]
         direction TB
-        FT[POST /pipeline/trigger<br/>→ 202 + pipeline_run_id]
-        FM[GET /morning-notes?manager_id=X<br/>→ List notes]
-        FD[GET /morning-notes/{id}<br/>→ Full note detail]
-        FS[GET /morning-notes/{id}/stream<br/>→ SSE real-time events]
-        FF[POST /morning-notes/{id}/feedback<br/>→ Submit manager feedback]
-        FH[GET /health<br/>→ {status, db}]
+        FT[POST /pipeline/trigger<br/> 202 + pipeline_run_id]
+        FM[GET /morning-notes?manager_id=X<br/> List notes]
+        FD[GET /morning-notes/{id}<br/> Full note detail]
+        FS[GET /morning-notes/{id}/stream<br/> SSE real-time events]
+        FF[POST /morning-notes/{id}/feedback<br/> Submit manager feedback]
+        FH[GET /health<br/> {status, db}]
     end
 
     TRIGGERS --> API
@@ -34,7 +34,7 @@ flowchart TB
     %% Celery Worker
     subgraph CW["CELERY WORKER POOL"]
         direction TB
-        WF[run_daily_pipeline() task<br/>idempotent, retryable<br/>→ Fetches portfolio tickers from DB<br/>→ Creates MorningNote (status=pending)<br/>→ Invokes LangGraph pipeline<br/>→ On success: status=completed<br/>→ On failure: status=failed + flags]
+        WF[run_daily_pipeline() task<br/>idempotent, retryable<br/> Fetches portfolio tickers from DB<br/> Creates MorningNote (status=pending)<br/> Invokes LangGraph pipeline<br/> On success: status=completed<br/> On failure: status=failed + flags]
     end
 
     API --> CW
@@ -43,13 +43,13 @@ flowchart TB
     subgraph LG["LANGGRAPH STATEGRAPH<br/>Multi-Ticker Pipeline"]
         direction TB
         %% Macro Agent
-        MA[MacroAgent<br/>→ macro news<br/>Selic, inflation, FX<br/>runs ONCE per portfolio]
+        MA[MacroAgent<br/> macro news<br/>Selic, inflation, FX<br/>runs ONCE per portfolio]
 
         %% Fan-out agents
         subgraph FO["Fan-out via Send API<br/>runs per ticker in parallel"]
-            CA[CompanyAgent<br/>Tavily → company events<br/>per ticker]
-            QA[QuantAgent<br/>yfinance → P/L, EV/EBITDA,<br/>P/VPA, dividend yield<br/>per ticker]
-            RA[RiskAgent<br/>adversarial NIM →<br/>risk flags per ticker]
+            CA[CompanyAgent<br/>Tavily company events<br/>per ticker]
+            QA[QuantAgent<br/>yfinance P/L, EV/EBITDA,<br/>P/VPA, dividend yield<br/>per ticker]
+            RA[RiskAgent<br/>adversarial NIM <br/>risk flags per ticker]
         end
 
         %% Consolidate
