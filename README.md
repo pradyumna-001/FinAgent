@@ -6,14 +6,16 @@
 
 FinAgent runs a **multi-ticker pipeline** that produces **one consolidated morning note per portfolio per day**, with per-ticker recommendations in structured JSONB:
 
-```
-MacroAgent → reads macro news (Selic, inflation, FX, Fed impact on Brazil) — runs ONCE per portfolio
-    ↓
-Fan-out: CompanyAgent, QuantAgent, RiskAgent run in parallel PER TICKER (LangGraph Send API)
-    ↓
-Consolidate Node → computes portfolio sector weights, concentration flags, stale data flags
-    ↓
-EditorAgent → consolidates into single morning note + per-ticker recommendations + confidence scores
+```mermaid
+flowchart LR
+    MA[MacroAgent<br/>reads macro news<br/>Selic, inflation, FX, Fed<br/>runs ONCE per portfolio]
+    FO[Fan-out: CompanyAgent<br/>QuantAgent, RiskAgent<br/>parallel PER TICKER<br/>LangGraph Send API]
+    CN[Consolidate Node<br/>portfolio sector weights<br/>concentration flags<br/>stale data flags]
+    EA[EditorAgent<br/>consolidated morning note<br/>per-ticker recommendations<br/>confidence scores]
+
+    MA --> FO
+    FO --> CN
+    CN --> EA
 ```
 
 **Output per portfolio**: Single Portuguese morning note + structured per-ticker recommendations (buy / sell / keep) with justification and confidence scores per section. Portfolio-level risk flags (sector concentration, stale data) included.
