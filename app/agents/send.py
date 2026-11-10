@@ -11,6 +11,24 @@ logger = logging.getLogger(__name__)
 
 
 async def send_note_node(state: AgentState) -> dict:
+    """Send one Telegram note per ticker in the multi-ticker pipeline.
+
+    Builds the Telegram channel once, then iterates over every ticker in
+    state["recommendations"]. Each ticker gets its own NotePayload using
+    the persisted recommendation_id from state["recommendation_id"]
+    (dict[str, int]). Per-ticker failure isolation: one ticker's
+    send_note failure does not block others. decision_channel is
+    "telegram" if any send succeeded, None otherwise.
+
+    Args:
+        state: AgentState containing recommendations (dict[str, RecommendationPayload]),
+               recommendation_id (dict[str, int]), confidence_scores,
+               manager_id, morning_note_id, pipeline_run_id.
+
+    Returns:
+        dict with decision_channel (str | None), flags (list[DataFlag]),
+        and data_freshness (dict[str, datetime]).
+    """
     logger.info(
         "send_note_node_start",
         extra={
