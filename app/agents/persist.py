@@ -53,16 +53,13 @@ async def persist_recommendation_node(state: AgentState) -> dict:
             "data_freshness": {"persist": datetime.now(UTC)}
         }
 
-    ticker = tickers[0]
-    recommendation = state.get("recommendations", {}).get(ticker)
-
-    if recommendation is None:
+    recommendations = state.get("recommendations", {})
+    if not recommendations:
         new_flags.append(DataFlag(
             source="persist_node",
             severity=Severity.FATAL,
-            message=f"no recommendation for ticker {ticker} in current state"
+            message="no recommendations in state"
         ))
-
         await sse_service.emit_event(
             state["pipeline_run_id"],
             {
@@ -76,37 +73,40 @@ async def persist_recommendation_node(state: AgentState) -> dict:
             "data_freshness": {"persist": datetime.now(UTC)}
         }
 
-    async with SessionLocal() as session:
-        async with session.begin():
-            await session.execute(
-                text(f"SET LOCAL app.manager_id = '{int(state['manager_id'])}'")
-            )
+    rec_ids: dict[str, int] = {}
 
-            recommendation_obj = Recommendation(
-                morning_note_id=int(state["morning_note_id"]),
-                action=recommendation["action"],
-                confidence=recommendation["confidence"],
-                justification=recommendation["justification"],
-            )
+    for ticker, payload in state["recommendations"].items():
+        async with SessionLocal() as session:
+            async with session.begin():
+                await session.execute(
+                    text(f"SET LOCAL app.manager_id = '{int(state['manager_id'])}'")
+                )
 
-            session.add(recommendation_obj)
-            await session.flush()
-            rec_id = recommendation_obj.id
+                recommendation_obj = Recommendation(
+                    morning_note_id=int(state["morning_note_id"]),
+                    action=payload["action"],
+                    confidence=payload["confidence"],
+                    justification=payload["justification"],
+                )
 
-    confidence = state["confidence_scores"].get("persist", 1.0)
-    await sse_service.emit_event(
-        state["pipeline_run_id"],
-        {
-            "event_type": "agent_completed",
-            "agent_name": "persist",
-            "confidence_score": confidence,
-            "timestamp": datetime.now(UTC).isoformat()
-        }
-    )
+                session.add(recommendation_obj)
+                await session.flush()
+                rec_ids[ticker] = recommendation_obj.id
+                confidence = state["confidence_scores"].get(ticker, {}).get("persist", 1.0)
+
+        await sse_service.emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "agent_completed",
+                "agent_name": "persist",
+                "confidence_score": confidence,
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
 
     return {
-        "recommendation_id": rec_id,
+        "recommendation_id": rec_ids,
         "decision_channel": None,
         "data_freshness": {"persist": datetime.now(UTC)},
-        "flags": []
+        "flags": new_flags,
     }
