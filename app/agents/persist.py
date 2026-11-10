@@ -13,6 +13,22 @@ logger = logging.getLogger(__name__)
 
 
 async def persist_recommendation_node(state: AgentState) -> dict:
+    """Persist one Recommendation row per ticker in the multi-ticker pipeline.
+
+    Iterates over every ticker in state["recommendations"], writes an
+    independent Recommendation row per ticker (one SessionLocal transaction
+    each, Option B), and collects the DB-generated ids into
+    recommendation_id: dict[str, int]. Emits SSE agent_completed per ticker.
+
+    Args:
+        state: AgentState containing recommendations (dict[str, RecommendationPayload]),
+               confidence_scores (dict[str, dict[str, float]]), manager_id,
+               morning_note_id, pipeline_run_id.
+
+    Returns:
+        dict with recommendation_id (dict[str, int] | None), decision_channel (str | None),
+        data_freshness (dict[str, datetime]), and flags (list[DataFlag]).
+    """
     logger.info(
         "persist_recommendation_node_start",
         extra={
