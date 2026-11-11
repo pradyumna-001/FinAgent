@@ -69,6 +69,26 @@ async def send_note_node(state: AgentState) -> dict:
             "data_freshness": {"send": datetime.now(UTC)}
         }
 
+    recommendations = state.get("recommendations", {})
+    if not recommendations:
+        new_flags.append(DataFlag(
+            source="send_node",
+            severity=Severity.FATAL,
+            message="no recommendations in state"
+        ))
+        await sse_service.emit_event(
+            state["pipeline_run_id"],
+            {
+                "event_type": "agent_completed",
+                "agent_name": "send",
+                "timestamp": datetime.now(UTC).isoformat()
+            }
+        )
+        return {
+            "flags": new_flags,
+            "data_freshness": {"send": datetime.now(UTC)}
+        }
+
     telegram_channel = build_telegram_channel()
 
     if telegram_channel is None:
