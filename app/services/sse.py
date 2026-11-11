@@ -25,13 +25,12 @@ class SSEService:
     async def emit_event(self, pipeline_run_id: str, event: dict) -> None:
         """Emit an event to the pipeline's queue.
 
-        Called by graph nodes. If no queue exists (no subscriber yet),
-        event is dropped for MVP simplicity.
+        Called by graph nodes. If no queue exists (no active SSE connection),
+        the event is dropped for MVP simplicity.
         """
         queue = self._get_queue(pipeline_run_id)
         if queue is not None:
             await queue.put(event)
-        # else: drop event (no active SSE connection)
 
     async def subscribe(self, pipeline_run_id: str) -> AsyncGenerator[dict, None]:
         """Subscribe to events for a pipeline_run_id.
@@ -45,7 +44,6 @@ class SSEService:
                 event = await queue.get()
                 yield event
         finally:
-            # Generator closed (client disconnected) - cleanup
             self.cleanup(pipeline_run_id)
 
     def cleanup(self, pipeline_run_id: str) -> None:
@@ -56,5 +54,4 @@ class SSEService:
         self._queues.pop(pipeline_run_id, None)
 
 
-# Module-level singleton instance
 sse_service = SSEService()

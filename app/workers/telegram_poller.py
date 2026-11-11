@@ -1,3 +1,10 @@
+"""Telegram callback query poller for manager decisions.
+
+Continuously polls Telegram for callback queries (Approve/Reject buttons),
+records decisions idempotently in Redis, and resumes the corresponding
+LangGraph pipeline run via Command(resume=...).
+"""
+
 import asyncio
 import logging
 
@@ -17,6 +24,15 @@ logger = logging.getLogger(__name__)
 
 
 async def telegram_polling_loop() -> DataFlag:
+    """Run the Telegram callback query polling loop.
+
+    Polls for Telegram updates, extracts approve/reject callback data,
+    records decisions in Redis (idempotent), and resumes the graph
+    for the corresponding pipeline run.
+
+    Returns:
+        DataFlag indicating poller stop status (INFO on clean shutdown).
+    """
     if not settings.TELEGRAM_BOT_TOKEN:
         return DataFlag(
             source="telegram",

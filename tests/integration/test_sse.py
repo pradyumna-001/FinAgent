@@ -97,7 +97,7 @@ def patched_services():
 def test_graph(patched_services):
     """Create a test graph with persist_recommendation_node mocked to avoid DB."""
     mock_persist = AsyncMock(return_value={
-        "recommendation_id": 1,
+        "recommendation_id": {"PETR4": 1},
         "decision_channel": None,
         "data_freshness": {"persist": datetime.now(UTC)},
         "flags": []
@@ -133,13 +133,12 @@ async def test_sse_events_correct_order(test_graph, patched_services):
     pipeline_run_id = "test-run-order-123"
     morning_note_id = "test-note-order-123"
 
-    state = create_initial_state(
+    state = create_initial_state_multi(
         manager_id=1,
-        company_ticker="PETR4",
+        company_tickers=["PETR4"],
         pipeline_run_id=pipeline_run_id,
         morning_note_id=morning_note_id
     )
-    state["current_ticker"] = "PETR4"
     state["current_ticker"] = "PETR4"
 
     # Subscribe FIRST to ensure queue exists before graph emits events
@@ -474,16 +473,16 @@ async def test_sse_multiple_concurrent_pipelines_isolated():
         run_id_2 = "test-run-multi-2"
         note_id_2 = "test-note-multi-2"
 
-        state_1 = create_initial_state(
+        state_1 = create_initial_state_multi(
             manager_id=1,
-            company_ticker="PETR4",
+            company_tickers=["PETR4"],
             pipeline_run_id=run_id_1,
             morning_note_id=note_id_1
         )
         state_1["current_ticker"] = "PETR4"
-        state_2 = create_initial_state(
+        state_2 = create_initial_state_multi(
             manager_id=2,
-            company_ticker="VALE3",
+            company_tickers=["VALE3"],
             pipeline_run_id=run_id_2,
             morning_note_id=note_id_2
         )
@@ -515,7 +514,7 @@ async def test_sse_multiple_concurrent_pipelines_isolated():
 
         def build_graph():
             mock_persist = AsyncMock(return_value={
-                "recommendation_id": 1,
+                "recommendation_id": {"PETR4": 1},
                 "decision_channel": None,
                 "data_freshness": {"persist": datetime.now(UTC)},
                 "flags": []

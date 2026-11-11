@@ -11,6 +11,24 @@ logger = logging.getLogger(__name__)
 
 
 async def send_note_node(state: AgentState) -> dict:
+    """Send one Telegram note per ticker in the multi-ticker pipeline.
+
+    Builds the Telegram channel once, then iterates over every ticker in
+    state["recommendations"]. Each ticker gets its own NotePayload using
+    the persisted recommendation_id from state["recommendation_id"]
+    (dict[str, int]). Per-ticker failure isolation: one ticker's
+    send_note failure does not block others. decision_channel is
+    "telegram" if any send succeeded, None otherwise.
+
+    Args:
+        state: AgentState containing recommendations (dict[str, RecommendationPayload]),
+               recommendation_id (dict[str, int]), confidence_scores,
+               manager_id, morning_note_id, pipeline_run_id.
+
+    Returns:
+        dict with decision_channel (str | None), flags (list[DataFlag]),
+        and data_freshness (dict[str, datetime]).
+    """
     logger.info(
         "send_note_node_start",
         extra={
@@ -51,15 +69,13 @@ async def send_note_node(state: AgentState) -> dict:
             "data_freshness": {"send": datetime.now(UTC)}
         }
 
-    ticker = tickers[0]
-
-    if state["recommendation_id"] is None or state.get("recommendations", {}).get(ticker) is None:
+    recommendations = state.get("recommendations", {})
+    if not recommendations:
         new_flags.append(DataFlag(
             source="send_node",
             severity=Severity.FATAL,
-            message=f"no recommendation for ticker {ticker} in current state"
+            message="no recommendations in state"
         ))
-
         await sse_service.emit_event(
             state["pipeline_run_id"],
             {
@@ -73,9 +89,8 @@ async def send_note_node(state: AgentState) -> dict:
             "data_freshness": {"send": datetime.now(UTC)}
         }
 
-    recommendation = state["recommendations"][ticker]
-
     telegram_channel = build_telegram_channel()
+
     if telegram_channel is None:
         new_flags.append(DataFlag(
             source="send_node",
@@ -96,24 +111,47 @@ async def send_note_node(state: AgentState) -> dict:
             "data_freshness": {"send": datetime.now(UTC)}
         }
 
-    payload = NotePayload(
-        pipeline_run_id=state["pipeline_run_id"],
-        recommendation_id=state["recommendation_id"],
-        ticker=ticker,
-        action=recommendation["action"],
-        confidence=recommendation["confidence"],
-        justification=recommendation["justification"]
-    )
-    try:
-        await telegram_channel.send_note(payload)
+    any_sent = False
 
-    except Exception:
-        new_flags.append(DataFlag(
-            source="send_node",
-            severity=Severity.FATAL,
-            message="telegram channel is unavailable"
-        ))
-        logger.error("send_note_failed", exc_info=True)
+    for ticker, payload in state["recommendations"].items():
+        recommendation_ids = state.get("recommendation_id") or {}
+        rec_id = recommendation_ids.get(ticker)
+        if rec_id is None:
+            new_flags.append(DataFlag(
+                source="send_node",
+                severity=Severity.FATAL,
+                message=f"no recommendation_id for ticker {ticker} in state"
+            ))
+            await sse_service.emit_event(
+                state["pipeline_run_id"],
+                {
+                    "event_type": "agent_completed",
+                    "agent_name": "send",
+                    "timestamp": datetime.now(UTC).isoformat()
+                }
+            )
+            continue
+
+        recommendation = payload
+        try:
+            await telegram_channel.send_note(
+                NotePayload(
+                    pipeline_run_id=state["pipeline_run_id"],
+                    recommendation_id=rec_id,
+                    ticker=ticker,
+                    action=recommendation["action"],
+                    confidence=recommendation["confidence"],
+                    justification=recommendation["justification"]
+                )
+            )
+            any_sent = True
+        except Exception:
+            new_flags.append(DataFlag(
+                source="send_node",
+                severity=Severity.FATAL,
+                message=f"failed to send note for ticker {ticker}"
+            ))
+            logger.error(f"send_note_failed for ticker {ticker}", exc_info=True)
 
         await sse_service.emit_event(
             state["pipeline_run_id"],
@@ -123,22 +161,11 @@ async def send_note_node(state: AgentState) -> dict:
                 "timestamp": datetime.now(UTC).isoformat()
             }
         )
-        return {
-            "flags": new_flags,
-            "data_freshness": {"send": datetime.now(UTC)}
-        }
 
-    await sse_service.emit_event(
-        state["pipeline_run_id"],
-        {
-            "event_type": "agent_completed",
-            "agent_name": "send",
-            "timestamp": datetime.now(UTC).isoformat()
-        }
-    )
+    decision_channel = "telegram" if any_sent else None
 
     return {
-        "decision_channel": "telegram",
+        "decision_channel": decision_channel,
         "flags": new_flags,
         "data_freshness": {"send": datetime.now(UTC)}
     }

@@ -17,10 +17,13 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
+    """SQLAlchemy declarative base for all FinAgent ORM models."""
     pass
 
 
 class Manager(Base):
+    """A portfolio manager (user) who owns morning notes and receives recommendations."""
+
     __tablename__ = "managers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -33,6 +36,8 @@ class Manager(Base):
 
 
 class Company(Base):
+    """A B3-listed company (ticker) referenced in morning notes and recommendations."""
+
     __tablename__ = "companies"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -44,6 +49,8 @@ class Company(Base):
 
 
 class Portfolio(Base):
+    """A manager's portfolio of tickers used to trigger a morning-note pipeline run."""
+
     __tablename__ = "portfolios"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -53,6 +60,8 @@ class Portfolio(Base):
 
 
 class PortfolioHolding(Base):
+    """A single ticker holding within a portfolio, with its weight."""
+
     __tablename__ = "portfolio_holdings"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -63,6 +72,8 @@ class PortfolioHolding(Base):
 
 
 class MorningNoteStatus(str, Enum):
+    """Lifecycle status of a MorningNote."""
+
     PENDING = "pending"
     GENERATING = "generating"
     COMPLETED = "completed"
@@ -70,6 +81,8 @@ class MorningNoteStatus(str, Enum):
 
 
 class MorningNote(Base):
+    """A generated morning note for a portfolio, with per-ticker recommendations and metadata."""
+
     __tablename__ = "morning_notes"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -96,6 +109,8 @@ class MorningNote(Base):
 
 
 class Recommendation(Base):
+    """A buy/sell/keep recommendation for a single ticker within a morning note."""
+
     __tablename__ = "recommendations"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -112,12 +127,16 @@ class Recommendation(Base):
 
 
 class FeedbackAction(str, Enum):
+    """Manager feedback action on a recommendation."""
+
     BUY = "buy"
     SELL = "sell"
     KEEP = "keep"
 
 
 class Feedback(Base):
+    """Manager feedback (action + optional comment) on a morning note."""
+
     __tablename__ = "feedbacks"
 
     id: Mapped[int] = mapped_column(primary_key=True)
