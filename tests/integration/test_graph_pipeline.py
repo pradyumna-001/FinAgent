@@ -128,7 +128,7 @@ def test_graph(dev_graph, patched_services):
 
     # Mock persist node to avoid database
     mock_persist = AsyncMock(return_value={
-        "recommendation_id": 1,
+        "recommendation_id": {"PETR4": 1},
         "decision_channel": None,
         "data_freshness": {"persist": datetime.now(UTC)},
         "flags": []

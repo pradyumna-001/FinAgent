@@ -88,8 +88,9 @@ def validated_node(node_fn, name: str):
 
 async def mock_persist_node(state: AgentState) -> dict:
     """Mock persist node - returns success without DB write."""
+    tickers = state.get("company_tickers", ["PETR4"])
     return {
-        "recommendation_id": 1,
+        "recommendation_id": {t: 1 for t in tickers},
         "decision_channel": None,
         "data_freshness": {"persist": datetime.now(UTC)},
         "flags": []
