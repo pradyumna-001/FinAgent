@@ -21,7 +21,27 @@ logger = logging.getLogger(__name__)
 
 
 async def approval_gate_node(state: AgentState) -> dict:
-    """Suspend until the manager approves/rejects; on resume, persist the decision."""
+    """Pause the pipeline for manager approval on all recommendations.
+
+    Interrupts once with a payload containing all ticker recommendations
+    and their persisted recommendation_ids. Accepts three resume commands:
+
+    - "approved"  -> bulk approve all tickers
+    - "rejected"  -> bulk reject all tickers
+    - dict[str, str] mapping ticker -> "approved"/"rejected" for per-ticker decisions
+
+    Persists each decision to its Recommendation row via independent
+    transactions (Option B). Returns aggregate manager_decision:
+    "approved" if all approved, "rejected" if all rejected, "partial" if mixed.
+
+    Args:
+        state: AgentState with recommendations (dict[str, RecommendationPayload]),
+               recommendation_id (dict[str, int]), manager_id, pipeline_run_id.
+
+    Returns:
+        dict with manager_decision (str), decision_channel (str | None),
+        data_freshness (dict[str, datetime]), and flags (list[DataFlag]).
+    """
     new_flags = []
     tickers = state.get("company_tickers", [])
     if not tickers:
