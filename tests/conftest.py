@@ -128,10 +128,11 @@ USE_TESTCONTAINERS = IN_CI and DOCKER_AVAILABLE and not _workflow_provided_db
 
 
 @pytest.fixture(scope="session")
-def pg_container() -> Generator["PostgresContainer", None, None]:
+def pg_container() -> Generator["PostgresContainer | None", None, None]:
     """PostgreSQL container for CI. Uses existing PG on Windows/local."""
     if not USE_TESTCONTAINERS:
-        pytest.skip("Using existing PostgreSQL; testcontainers not needed")
+        yield None
+        return
 
     try:
         with PostgresContainer("pgvector/pgvector:pg16") as pg:
