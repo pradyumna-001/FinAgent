@@ -20,6 +20,23 @@ async def trigger_pipeline(
     background: BackgroundTasks,
     manager: Annotated[Manager, Depends(get_current_manager)],
 ) -> JSONResponse:
+    """Trigger a multi-ticker pipeline run for a portfolio.
+
+    Validates portfolio ownership, counts tickers, and dispatches
+    the pipeline to the Celery worker via background task.
+
+    Args:
+        payload: TriggerRequest with manager_id and portfolio_id.
+        background: FastAPI BackgroundTasks for async dispatch.
+        manager: Authenticated manager from JWT (dependency).
+
+    Returns:
+        JSONResponse with pipeline_run_id, morning_note_id, portfolio_id,
+        tickers_count, and status="pending".
+
+    Raises:
+        HTTPException: 404 if portfolio not found or not owned by manager.
+    """
 
     async with SessionLocal() as session:
         await session.execute(text("SET LOCAL app.manager_id = :mid"), {"mid": manager.id})
