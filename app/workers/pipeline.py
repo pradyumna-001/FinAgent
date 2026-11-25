@@ -1,6 +1,8 @@
 """Celery application for FinAgent pipeline workers."""
 
 import asyncio
+import logging
+from datetime import date
 from uuid import uuid4
 
 from celery import Celery
@@ -8,18 +10,24 @@ from celery.schedules import crontab
 from celery.signals import worker_process_init, worker_process_shutdown
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph.state import CompiledStateGraph
+from sqlalchemy import func, select, text
 
 from app.core.config import settings
 from app.core.context import current_pipeline_run_id
+from app.db.models import MorningNote, MorningNoteStatus
+from app.db.session import SessionLocal
 from app.db.session import engine as get_engine
 from app.graph.pipeline import compile_graph
-from app.graph.state import create_initial_state
+from app.graph.state import create_initial_state, create_initial_state_multi
+from app.services.portfolio import get_portfolio_tickers
 from app.workers.exceptions import WorkerNotInitializedError
 
 _loop: asyncio.AbstractEventLoop | None = None
 _saver_cm = None
 _saver: AsyncPostgresSaver | None = None
 _graph: CompiledStateGraph | None = None
+
+logger = logging.getLogger(__name__)
 
 
 # Create Celery app
@@ -103,5 +111,74 @@ def run_daily_pipeline(self, manager_id: int, company_ticker: str) -> None:
         _loop.run_until_complete(
             _graph.ainvoke(initial, config={"configurable": {"thread_id": str(pipeline_run_id)}})
         )
+    finally:
+        current_pipeline_run_id.reset(token)
+
+
+@celery_app.task(bind=True, ignore_result=True)
+def run_daily_pipeline_for_portfolio(
+    self,
+    manager_id: int,
+    portfolio_id: int,
+    pipeline_run_id: str,
+    _api_morning_note_id: str
+) -> None:
+
+    if _graph is None or _loop is None:
+        raise WorkerNotInitializedError("The worker is not initialized because graph or loop is None")
+
+    async def _run():
+        tickers = await get_portfolio_tickers(portfolio_id, manager_id)
+        if not tickers:
+            logger.warning("portfolio_has_no_tickers", manager_id=manager_id, portfolio_id=portfolio_id)
+            return
+
+        async with SessionLocal() as session:
+            await session.execute(text(
+                "SET LOCAL app.manager_id = :mid"
+            ), {"mid": manager_id})
+
+            existing = await session.execute(
+                select(MorningNote.id).where(
+                    MorningNote.manager_id == manager_id,
+                    MorningNote.portfolio_id == portfolio_id,
+                    func.date(MorningNote.generated_at) == date.today(),
+                    MorningNote.status.in_([MorningNoteStatus.GENERATING, MorningNoteStatus.COMPLETED])
+                )
+            )
+
+            if existing.scalar():
+                logger.info("morning_note_exists_skip", manager_id=manager_id, portfolio_id=portfolio_id)
+                return
+
+            morning_note = MorningNote(
+                manager_id=manager_id,
+                portfolio_id=portfolio_id,
+                pipeline_run_id=pipeline_run_id,
+                status=MorningNoteStatus.GENERATING,
+                note_text="",
+                recommendations={},
+                confidence_scores={},
+                data_freshness={},
+                flags=[],
+            )
+
+            session.add(morning_note)
+            await session.flush()
+            morning_note_id = morning_note.id
+
+        initial = create_initial_state_multi(
+            manager_id=manager_id,
+            company_tickers=tickers,
+            pipeline_run_id=pipeline_run_id,
+            morning_note_id=str(morning_note_id)
+        )
+
+        await _graph.ainvoke(initial, config={"configurable": {"thread_id": pipeline_run_id}})
+
+    token = current_pipeline_run_id.set(pipeline_run_id)
+
+    try:
+        _loop.run_until_complete(_run())
     finally:
         current_pipeline_run_id.reset(token)

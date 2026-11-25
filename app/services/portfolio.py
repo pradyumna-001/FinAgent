@@ -1,6 +1,6 @@
 from sqlalchemy import select, text
 
-from app.db.models import PortfolioHolding, Company
+from app.db.models import Company, PortfolioHolding
 from app.db.session import SessionLocal
 
 
@@ -32,4 +32,3 @@ async def get_portfolio_tickers(portfolio_id: int, manager_id: int) -> list[str]
         tickers = result.scalars().all()
 
         return list(dict.fromkeys(tickers))  # Deduplicate while preserving order
-    
