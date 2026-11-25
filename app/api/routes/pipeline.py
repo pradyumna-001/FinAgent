@@ -8,8 +8,7 @@ from app.api.deps import get_current_manager
 from app.db.models import Manager, Portfolio, PortfolioHolding
 from app.db.session import SessionLocal
 from app.schemas.pipeline import TriggerRequest, TriggerResponse
-
-# run_pipeline_for_portfolio will be imported after Step 10
+from app.services.pipeline import run_pipeline_for_portfolio
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -66,21 +65,12 @@ async def trigger_pipeline(
         tickers_count=tickers_count
     )
 
-    # Will import run_pipeline_for_portfolio in Step 10
-    # background.add_task(
-    #     run_pipeline_for_portfolio,
-    #     manager_id=manager.id,
-    #     portfolio_id=payload.portfolio_id,
-    #     pipeline_run_id=str(response.pipeline_run_id),
-    #     morning_note_id=str(response.morning_note_id)
-    # )
-
-    # For now, keep stub to avoid breaking - will replace in Step 10
-    from app.services.pipeline import run_pipeline_stub
     background.add_task(
-        run_pipeline_stub,
-        str(response.pipeline_run_id),
-        str(response.morning_note_id)
+        run_pipeline_for_portfolio,
+        manager_id=manager.id,
+        portfolio_id=payload.portfolio_id,
+        pipeline_run_id=str(response.pipeline_run_id),
+        morning_note_id=str(response.morning_note_id)
     )
 
     return JSONResponse(
