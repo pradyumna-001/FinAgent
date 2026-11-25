@@ -14,7 +14,7 @@ from sqlalchemy import func, select, text
 
 from app.core.config import settings
 from app.core.context import current_pipeline_run_id
-from app.db.models import MorningNote, MorningNoteStatus
+from app.db.models import Manager, MorningNote, MorningNoteStatus, Portfolio
 from app.db.session import SessionLocal
 from app.db.session import engine as get_engine
 from app.graph.pipeline import compile_graph
@@ -55,6 +55,10 @@ celery_app.conf.update(
             "task": "app.workers.pipeline.run_daily_pipeline",
             "schedule": crontab(hour=9, minute=0),  # 9 UTC = 6 AM BRT
         },
+        "run-daily-pipelines-for-all-portfolios": {
+            "task": "app.workers.pipeline.run_daily_pipelines_for_all_portfolios",
+            "schedule": crontab(hour=9, minute=30),  # 9:30 UTC = 6:30 AM BRT
+        },
     },
 )
 
@@ -91,6 +95,34 @@ def init_pipeline_resources(**kwargs):
 def shutdown_pipeline_resources(**kwargs):
     _loop.run_until_complete(_saver_cm.__aexit__(None, None, None))
     _loop.close()
+
+async def _dispatch_portfolio_pipelines() -> None:
+    """Fetch all portfolios across all managers and dispatch pipeline for each."""
+    async with SessionLocal() as session:
+        result = await session.execute(select(Manager.id))
+        manager_ids = [row[0] for row in result.all()]
+
+    for manager_id in manager_ids:
+        async with SessionLocal() as session:
+            await session.execute(text("SET LOCAL app.manager_id = :mid"), {"mid": manager_id})
+            result = await session.execute(select(Portfolio.id).where(Portfolio.manager_id == manager_id))
+            portfolio_ids = [row[0] for row in result.all()]
+
+        for portfolio_id in portfolio_ids:
+            pipeline_run_id = str(uuid4())
+            morning_note_id = str(uuid4())
+            celery_app.send_task(
+                "app.workers.pipeline.run_daily_pipeline_for_portfolio",
+                args=[manager_id, portfolio_id, pipeline_run_id, morning_note_id]
+            )
+
+
+@celery_app.task(bind=True, ignore_result=True)
+def run_daily_pipelines_for_all_portfolios(self) -> None:
+    """Periodic task: dispatch pipeline for all portfolios."""
+    if _loop is None:
+        raise WorkerNotInitializedError("The worker is not initialized because loop is None")
+    _loop.run_until_complete(_dispatch_portfolio_pipelines())
 
 
 @celery_app.task(bind=True, ignore_result=True)
