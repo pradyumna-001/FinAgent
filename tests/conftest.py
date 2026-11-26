@@ -36,14 +36,16 @@ def _get_test_engine():
             # so we just create a new engine. The old one will be GC'd.
             pass
 
+        # Use conservative pool settings to avoid "another operation is in progress"
+        # errors. Disable pooling for test environments or use minimal pool.
         _test_engine = create_async_engine(
             os.environ.get("DATABASE_URL", DEFAULT_DB_URL_ASYNC),
             echo=False,
             pool_pre_ping=True,
             pool_recycle=300,
-            pool_size=20,
-            max_overflow=40,
-            pool_timeout=60,
+            pool_size=5,  # Reduced pool size
+            max_overflow=0,  # No overflow to prevent concurrent operations
+            pool_timeout=30,
         )
         _test_session_local = async_sessionmaker(_test_engine, expire_on_commit=False)
         _test_engine_loop_id = current_loop_id
@@ -333,6 +335,15 @@ async def bound_engine() -> AsyncIterator[None]:
     finally:
         # Don't dispose the singleton engine - let it live for the test session
         pass
+
+# Ensure the event loop policy is set for the test session
+# This prevents "Future attached to a different loop" errors
+@pytest.fixture(autouse=True)
+def _event_loop_policy():
+    """Ensure consistent event loop policy for async tests."""
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    yield
 
 
 @pytest.fixture
