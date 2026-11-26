@@ -178,7 +178,7 @@ EDITOR_MOCK_RETURN = '{"morning_note": "Test note for PETR4", "recommendations":
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_fanout_company_quant_risk_parallel():
+async def test_fanout_company_quant_risk_parallel(clean_db):
     """Graph runs Company, Quant, Risk in parallel per ticker using Send API."""
     async def _test(SessionLocal):
 
@@ -271,14 +271,18 @@ async def test_fanout_company_quant_risk_parallel():
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_node_executes_after_risk():
+async def test_consolidate_node_executes_after_risk(clean_db):
     """Consolidate node runs after risk agents complete."""
     async def _test(SessionLocal):
         # Setup test data in DB (for consolidate node which queries companies table)
         async with SessionLocal() as session:
-            from sqlalchemy import insert
+            from sqlalchemy import delete, insert
 
             from app.db.models import Company
+            # Clean up any existing test data with these IDs
+            await session.execute(delete(Company).where(Company.id.in_([1, 2])))
+            await session.commit()
+
             await session.execute(insert(Company).values(id=1, ticker="PETR4", name="Petrobras", sector="Energy"))
             await session.execute(insert(Company).values(id=2, ticker="VALE3", name="Vale", sector="Materials"))
             await session.commit()
