@@ -80,6 +80,11 @@ jobs:
       - name: Install psycopg for migrations
         run: uv pip install psycopg[binary]
 
+      - name: Run migrations
+        run: |
+          export MIGRATION_DATABASE_URL=postgresql+psycopg://finagent:finagent_secure_pass@localhost:5432/finagent
+          uv run alembic upgrade heads
+
       - name: Create finagent_app role
         env:
           PGPASSWORD: finagent_secure_pass
@@ -96,11 +101,6 @@ jobs:
           GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO finagent_app;
           ALTER ROLE finagent_app WITH PASSWORD 'finagent_pwd';
           EOF
-
-      - name: Run migrations
-        run: |
-          export MIGRATION_DATABASE_URL=postgresql+psycopg://finagent:finagent_secure_pass@localhost:5432/finagent
-          uv run alembic upgrade heads
 
       - name: Run standalone full graph test
         run: uv run python tests/integration/run_full_graph_test.py
@@ -164,6 +164,11 @@ jobs:
       - name: Install psycopg for migrations
         run: uv pip install psycopg[binary]
 
+      - name: Run migrations
+        run: |
+          export MIGRATION_DATABASE_URL=postgresql+psycopg://finagent:finagent_secure_pass@localhost:5432/finagent
+          uv run alembic upgrade heads
+
       - name: Create finagent_app role
         env:
           PGPASSWORD: finagent_secure_pass
@@ -180,11 +185,6 @@ jobs:
           GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO finagent_app;
           ALTER ROLE finagent_app WITH PASSWORD 'finagent_pwd';
           EOF
-
-      - name: Run migrations
-        run: |
-          export MIGRATION_DATABASE_URL=postgresql+psycopg://finagent:finagent_secure_pass@localhost:5432/finagent
-          uv run alembic upgrade heads
 
       - name: Run integration tests
         run: uv run pytest tests/integration/ -v
