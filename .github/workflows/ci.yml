@@ -84,8 +84,18 @@ jobs:
         env:
           PGPASSWORD: finagent_secure_pass
         run: |
-          psql -h localhost -U finagent -d finagent -v ON_ERROR_STOP=1 -c "CREATE ROLE IF NOT EXISTS finagent_app NOSUPERUSER NOBYPASSRLS LOGIN; GRANT USAGE ON SCHEMA public TO finagent_app; GRANT SELECT, INSERT, UPDATE, DELETE ON managers, companies, portfolios, portfolio_holdings, morning_notes, recommendations TO finagent_app; GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO finagent_app;"
-          psql -h localhost -U finagent -d finagent -v ON_ERROR_STOP=1 -c "ALTER ROLE finagent_app WITH PASSWORD 'finagent_pwd';"
+          psql -h localhost -U finagent -d finagent -v ON_ERROR_STOP=1 <<'EOF'
+          DO $$
+          BEGIN
+            CREATE ROLE finagent_app NOSUPERUSER NOBYPASSRLS LOGIN;
+          EXCEPTION WHEN duplicate_object THEN
+            -- Role already exists, continue
+          END $$;
+          GRANT USAGE ON SCHEMA public TO finagent_app;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON managers, companies, portfolios, portfolio_holdings, morning_notes, recommendations TO finagent_app;
+          GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO finagent_app;
+          ALTER ROLE finagent_app WITH PASSWORD 'finagent_pwd';
+          EOF
 
       - name: Run migrations
         run: |
@@ -158,8 +168,18 @@ jobs:
         env:
           PGPASSWORD: finagent_secure_pass
         run: |
-          psql -h localhost -U finagent -d finagent -v ON_ERROR_STOP=1 -c "CREATE ROLE IF NOT EXISTS finagent_app NOSUPERUSER NOBYPASSRLS LOGIN; GRANT USAGE ON SCHEMA public TO finagent_app; GRANT SELECT, INSERT, UPDATE, DELETE ON managers, companies, portfolios, portfolio_holdings, morning_notes, recommendations TO finagent_app; GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO finagent_app;"
-          psql -h localhost -U finagent -d finagent -v ON_ERROR_STOP=1 -c "ALTER ROLE finagent_app WITH PASSWORD 'finagent_pwd';"
+          psql -h localhost -U finagent -d finagent -v ON_ERROR_STOP=1 <<'EOF'
+          DO $$
+          BEGIN
+            CREATE ROLE finagent_app NOSUPERUSER NOBYPASSRLS LOGIN;
+          EXCEPTION WHEN duplicate_object THEN
+            -- Role already exists, continue
+          END $$;
+          GRANT USAGE ON SCHEMA public TO finagent_app;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON managers, companies, portfolios, portfolio_holdings, morning_notes, recommendations TO finagent_app;
+          GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO finagent_app;
+          ALTER ROLE finagent_app WITH PASSWORD 'finagent_pwd';
+          EOF
 
       - name: Run migrations
         run: |
