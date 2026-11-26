@@ -186,9 +186,10 @@ async def test_fanout_company_quant_risk_parallel():
         async with SessionLocal() as session:
             from sqlalchemy import delete, insert
 
-            from app.db.models import Company, Manager, Portfolio, PortfolioHolding, MorningNote
+            from app.db.models import Company, Feedback, Manager, MorningNote, Portfolio, PortfolioHolding
             # Clean up ALL test data first (correct order: children first)
             await session.execute(delete(PortfolioHolding))
+            await session.execute(delete(Feedback))
             await session.execute(delete(MorningNote))
             await session.execute(delete(Portfolio))
             await session.execute(delete(Company))
