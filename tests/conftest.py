@@ -198,6 +198,9 @@ def admin_db_url(pg_container) -> str:
     """Admin (superuser) connection URL for test setup/teardown."""
     if USE_TESTCONTAINERS:
         url = pg_container.get_connection_url(driver="psycopg")
+    elif _workflow_provided_db:
+        # Use CI-provided database URL
+        url = os.environ["MIGRATION_DATABASE_URL"]
     else:
         url = DEFAULT_DB_URL_ADMIN
     # asyncpg requires 'postgresql' scheme, not 'postgresql+psycopg'
