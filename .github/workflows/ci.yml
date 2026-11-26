@@ -80,6 +80,11 @@ jobs:
       - name: Install psycopg for migrations
         run: uv pip install psycopg[binary]
 
+      - name: Create finagent_app role
+        run: |
+          psql -h localhost -U finagent -d finagent -v ON_ERROR_STOP=1 -c "CREATE ROLE IF NOT EXISTS finagent_app NOSUPERUSER NOBYPASSRLS LOGIN; GRANT USAGE ON SCHEMA public TO finagent_app; GRANT SELECT, INSERT, UPDATE, DELETE ON managers, companies, portfolios, portfolio_holdings, morning_notes, recommendations TO finagent_app; GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO finagent_app;"
+          psql -h localhost -U finagent -d finagent -v ON_ERROR_STOP=1 -c "ALTER ROLE finagent_app WITH PASSWORD 'finagent_pwd';"
+
       - name: Run migrations
         run: |
           export MIGRATION_DATABASE_URL=postgresql+psycopg://finagent:finagent_secure_pass@localhost:5432/finagent
@@ -146,6 +151,11 @@ jobs:
 
       - name: Install psycopg for migrations
         run: uv pip install psycopg[binary]
+
+      - name: Create finagent_app role
+        run: |
+          psql -h localhost -U finagent -d finagent -v ON_ERROR_STOP=1 -c "CREATE ROLE IF NOT EXISTS finagent_app NOSUPERUSER NOBYPASSRLS LOGIN; GRANT USAGE ON SCHEMA public TO finagent_app; GRANT SELECT, INSERT, UPDATE, DELETE ON managers, companies, portfolios, portfolio_holdings, morning_notes, recommendations TO finagent_app; GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO finagent_app;"
+          psql -h localhost -U finagent -d finagent -v ON_ERROR_STOP=1 -c "ALTER ROLE finagent_app WITH PASSWORD 'finagent_pwd';"
 
       - name: Run migrations
         run: |
