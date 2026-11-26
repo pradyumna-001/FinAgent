@@ -193,10 +193,12 @@ async def test_fanout_company_quant_risk_parallel():
                 MorningNote,
                 Portfolio,
                 PortfolioHolding,
+                Recommendation,
             )
             # Clean up ALL test data first (correct order: children first)
             await session.execute(delete(PortfolioHolding))
             await session.execute(delete(Feedback))
+            await session.execute(delete(Recommendation))
             await session.execute(delete(MorningNote))
             await session.execute(delete(Portfolio))
             await session.execute(delete(Company))
