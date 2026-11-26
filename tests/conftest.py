@@ -193,6 +193,10 @@ def finagent_app_role(migrated_db_url: str, admin_db_url: str) -> Generator[str,
     async def _setup() -> None:
         conn = await _admin()
         try:
+            # Create finagent_app role if it doesn't exist (migration was never merged)
+            await conn.execute(
+                "CREATE ROLE IF NOT EXISTS finagent_app NOSUPERUSER NOBYPASSRLS LOGIN"
+            )
             await conn.execute(
                 "ALTER ROLE finagent_app WITH PASSWORD 'finagent_app_pwd'"
             )
