@@ -217,9 +217,15 @@ def finagent_app_role(migrated_db_url: str, admin_db_url: str) -> Generator[str,
         conn = await _admin()
         try:
             # Create finagent_app role if it doesn't exist (migration was never merged)
-            await conn.execute(
-                "CREATE ROLE IF NOT EXISTS finagent_app NOSUPERUSER NOBYPASSRLS LOGIN"
-            )
+            # Use DO block for PostgreSQL 16 compatibility (CREATE ROLE IF NOT EXISTS added in PG 17)
+            await conn.execute("""
+                DO $$
+                BEGIN
+                    CREATE ROLE finagent_app NOSUPERUSER NOBYPASSRLS LOGIN;
+                EXCEPTION WHEN duplicate_object THEN
+                    -- Role already exists, continue
+                END $$;
+            """)
             await conn.execute(
                 "ALTER ROLE finagent_app WITH PASSWORD 'finagent_app_pwd'"
             )
