@@ -19,8 +19,7 @@ async def test_trigger_returns_202_with_ids(bound_engine: None, finagent_app_rol
             headers={"Authorization": f"Bearer {_make_token(2)}"},
             json={
                 "manager_id": 2,
-                "portfolio_id": 42,
-                "company_id": 7,
+                "portfolio_id": 100,  # Alice's portfolio (created in finagent_app_role fixture)
             },
         )
     assert resp.status_code == 202

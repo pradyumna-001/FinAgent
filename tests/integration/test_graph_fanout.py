@@ -186,9 +186,10 @@ async def test_fanout_company_quant_risk_parallel():
         async with SessionLocal() as session:
             from sqlalchemy import delete, insert
 
-            from app.db.models import Company, Manager, Portfolio, PortfolioHolding
-            # Clean up ALL test data first
+            from app.db.models import Company, Manager, Portfolio, PortfolioHolding, MorningNote
+            # Clean up ALL test data first (correct order: children first)
             await session.execute(delete(PortfolioHolding))
+            await session.execute(delete(MorningNote))
             await session.execute(delete(Portfolio))
             await session.execute(delete(Company))
             await session.execute(delete(Manager))
@@ -263,6 +264,14 @@ async def test_fanout_company_quant_risk_parallel():
 async def test_consolidate_node_executes_after_risk():
     """Consolidate node runs after risk agents complete."""
     async def _test(SessionLocal):
+        # Setup test data in DB (for consolidate node which queries companies table)
+        async with SessionLocal() as session:
+            from sqlalchemy import insert
+            from app.db.models import Company
+            await session.execute(insert(Company).values(id=1, ticker="PETR4", name="Petrobras", sector="Energy"))
+            await session.execute(insert(Company).values(id=2, ticker="VALE3", name="Vale", sector="Materials"))
+            await session.commit()
+
         initial_state = create_initial_state_multi(
             manager_id=1,
             company_tickers=["PETR4", "VALE3"],
