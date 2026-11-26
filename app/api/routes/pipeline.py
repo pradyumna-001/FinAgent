@@ -38,7 +38,7 @@ async def trigger_pipeline(
     """
 
     async with SessionLocal() as session:
-        await session.execute(text("SET LOCAL app.manager_id = :mid"), {"mid": manager.id})
+        await session.execute(text(f"SET LOCAL app.manager_id = {manager.id}"))
 
         result = await session.execute(
             select(Portfolio).where(
