@@ -43,7 +43,7 @@ async def _run_test_with_engine(test_func):
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_computes_sector_weights():
+async def test_consolidate_computes_sector_weights(clean_db):
     """Consolidate computes sector weights from Company sectors."""
     async def _test(SessionLocal):
 
@@ -92,7 +92,7 @@ async def test_consolidate_computes_sector_weights():
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_sector_concentration_flag():
+async def test_consolidate_sector_concentration_flag(clean_db):
     """Consolidate flags sector concentration > 40%."""
     async def _test(SessionLocal):
 

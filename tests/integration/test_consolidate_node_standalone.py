@@ -43,7 +43,7 @@ async def _run_test_with_engine(test_func):
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_computes_sector_weights():
+async def test_consolidate_computes_sector_weights(clean_db):
     """Consolidate computes sector weights from Company sectors."""
     async def _test(SessionLocal):
         from app.agents.consolidate import consolidate_node
@@ -96,7 +96,7 @@ async def test_consolidate_computes_sector_weights():
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_sector_concentration_flag():
+async def test_consolidate_sector_concentration_flag(clean_db):
     """Consolidate flags sector concentration > 40%."""
     async def _test(SessionLocal):
         from app.agents.consolidate import consolidate_node
@@ -150,7 +150,7 @@ async def test_consolidate_sector_concentration_flag():
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_no_concentration_flag_under_40():
+async def test_consolidate_no_concentration_flag_under_40(clean_db):
     """No concentration flag when all sectors under 40%."""
     async def _test(SessionLocal):
         from app.agents.consolidate import consolidate_node
@@ -201,7 +201,7 @@ async def test_consolidate_no_concentration_flag_under_40():
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_stale_data_flag():
+async def test_consolidate_stale_data_flag(clean_db):
     """Consolidate flags stale tickers (>24h old data)."""
     async def _test(SessionLocal):
         from datetime import UTC, datetime, timedelta
@@ -262,7 +262,7 @@ async def test_consolidate_stale_data_flag():
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_no_stale_flag_when_all_fresh():
+async def test_consolidate_no_stale_flag_when_all_fresh(clean_db):
     """No stale data flag when all data is fresh."""
     async def _test(SessionLocal):
         from datetime import UTC, datetime, timedelta
@@ -320,7 +320,7 @@ async def test_consolidate_no_stale_flag_when_all_fresh():
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_empty_tickers():
+async def test_consolidate_empty_tickers(clean_db):
     """Consolidate handles empty tickers gracefully."""
     state = create_initial_state_multi(
         manager_id=999,
@@ -339,7 +339,7 @@ async def test_consolidate_empty_tickers():
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_unknown_sector():
+async def test_consolidate_unknown_sector(clean_db):
     """Consolidate handles unknown sectors."""
     async def _test(SessionLocal):
         from app.agents.consolidate import consolidate_node

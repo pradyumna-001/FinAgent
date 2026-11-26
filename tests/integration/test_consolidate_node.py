@@ -13,7 +13,7 @@ from app.graph.state import create_initial_state_multi
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_computes_sector_weights(bound_engine, migrated_db_url: str):
+async def test_consolidate_computes_sector_weights(bound_engine, clean_db, migrated_db_url: str):
     """Consolidate computes sector weights from Company sectors."""
     async with SessionLocal() as session:
         await session.execute(insert(Company).values(ticker="PETR4", name="Petrobras", sector="Energy"))
@@ -39,7 +39,7 @@ async def test_consolidate_computes_sector_weights(bound_engine, migrated_db_url
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_sector_concentration_flag(bound_engine, migrated_db_url: str):
+async def test_consolidate_sector_concentration_flag(bound_engine, clean_db, migrated_db_url: str):
     """Consolidate flags sector concentration > 40%."""
     async with SessionLocal() as session:
         # 3 Energy, 1 Financial = 75% Energy
@@ -67,7 +67,7 @@ async def test_consolidate_sector_concentration_flag(bound_engine, migrated_db_u
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_no_concentration_flag_under_40(bound_engine, migrated_db_url: str):
+async def test_consolidate_no_concentration_flag_under_40(bound_engine, clean_db, migrated_db_url: str):
     """No concentration flag when all sectors under 40%."""
     async with SessionLocal() as session:
         await session.execute(insert(Company).values(ticker="PETR4", name="Petrobras", sector="Energy"))
@@ -91,7 +91,7 @@ async def test_consolidate_no_concentration_flag_under_40(bound_engine, migrated
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_stale_data_flag(bound_engine, migrated_db_url: str):
+async def test_consolidate_stale_data_flag(bound_engine, clean_db, migrated_db_url: str):
     """Consolidate flags stale tickers (>24h old data)."""
     async with SessionLocal() as session:
         await session.execute(insert(Company).values(ticker="PETR4", name="Petrobras", sector="Energy"))
@@ -124,7 +124,7 @@ async def test_consolidate_stale_data_flag(bound_engine, migrated_db_url: str):
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_no_stale_flag_when_all_fresh(bound_engine, migrated_db_url: str):
+async def test_consolidate_no_stale_flag_when_all_fresh(bound_engine, clean_db, migrated_db_url: str):
     """No stale data flag when all data is fresh."""
     async with SessionLocal() as session:
         await session.execute(insert(Company).values(ticker="PETR4", name="Petrobras", sector="Energy"))
@@ -153,7 +153,7 @@ async def test_consolidate_no_stale_flag_when_all_fresh(bound_engine, migrated_d
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_empty_tickers(bound_engine, migrated_db_url: str):
+async def test_consolidate_empty_tickers(bound_engine, clean_db, migrated_db_url: str):
     """Consolidate handles empty tickers gracefully."""
     state = create_initial_state_multi(
         manager_id=1,
@@ -172,7 +172,7 @@ async def test_consolidate_empty_tickers(bound_engine, migrated_db_url: str):
 
 @pytest.mark.asyncio
 @pytest.mark.serial
-async def test_consolidate_unknown_sector(bound_engine, migrated_db_url: str):
+async def test_consolidate_unknown_sector(bound_engine, clean_db, migrated_db_url: str):
     """Consolidate handles unknown sectors."""
     async with SessionLocal() as session:
         await session.execute(insert(Company).values(ticker="PETR4", name="Petrobras", sector=None))
