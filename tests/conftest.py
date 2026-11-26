@@ -355,7 +355,7 @@ def _event_loop_policy():
 @pytest.fixture
 async def clean_db(bound_engine):
     """Provide a clean database state for each test by truncating test-specific tables.
-    
+
     Only cleans up tables that are NOT used by session-scoped fixtures (finagent_app_role).
     Tables used by finagent_app_role: Manager, Company, Portfolio, PortfolioHolding, MorningNote, Recommendation, Feedback
     This fixture only cleans up test-specific data AFTER the test runs.
@@ -363,7 +363,15 @@ async def clean_db(bound_engine):
     yield
     from sqlalchemy import delete
 
-    from app.db.models import Company, Feedback, Manager, MorningNote, Portfolio, PortfolioHolding, Recommendation
+    from app.db.models import (
+        Company,
+        Feedback,
+        Manager,
+        MorningNote,
+        Portfolio,
+        PortfolioHolding,
+        Recommendation,
+    )
     from app.db.session import SessionLocal
 
     async with SessionLocal() as session:
