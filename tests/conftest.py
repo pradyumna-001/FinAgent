@@ -147,6 +147,10 @@ def migrated_db_url(pg_container) -> Generator[str, None, None]:
     if USE_TESTCONTAINERS:
         url = pg_container.get_connection_url(driver="asyncpg")
         admin_url = pg_container.get_connection_url(driver="psycopg")
+    elif _workflow_provided_db:
+        # Use CI-provided database URLs (e.g., GitHub Actions service containers on port 5432)
+        url = os.environ["DATABASE_URL"]
+        admin_url = os.environ["MIGRATION_DATABASE_URL"]
     else:
         url = DEFAULT_DB_URL_ASYNC
         admin_url = DEFAULT_DB_URL_SYNC
