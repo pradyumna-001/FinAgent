@@ -326,10 +326,16 @@ async def bound_engine() -> AsyncIterator[None]:
     """Provide the shared test engine for integration tests.
 
     Uses a module-level singleton engine to avoid event loop conflicts.
+    Also patches the app's session module to use the test engine.
     """
     engine, session_local = _get_test_engine()
+    # Patch test's db_session module
     db_session.engine = engine
     db_session.SessionLocal = session_local
+    # Also patch the app's internal session module
+    import app.db.session as app_db_session
+    app_db_session._engine = engine
+    app_db_session._session_factory = session_local
     try:
         yield
     finally:
