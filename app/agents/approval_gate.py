@@ -69,9 +69,14 @@ async def approval_gate_node(state: AgentState) -> dict:
             "data_freshness": {"approval_gate": datetime.now(UTC)}
         }
 
+    # Include both singular (for backward compatibility with single-ticker tests)
+    # and plural (for multi-ticker) recommendation IDs in interrupt payload
+    current_ticker = state.get("current_ticker")
+    rec_id_single = rec_ids.get(current_ticker) if current_ticker else None
     decision = interrupt({
         "recommendations": {t: rec for t, rec in recommendations_dict.items()},
         "recommendation_ids": {t: rec_ids.get(t) for t in recommendations_dict},
+        "recommendation_id": rec_id_single,  # backward compat for single-ticker tests
     })
 
     if decision == "approved":
