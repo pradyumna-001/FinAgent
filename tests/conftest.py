@@ -156,11 +156,27 @@ def migrated_db_url(pg_container) -> Generator[str, None, None]:
     os.environ["DATABASE_URL"] = url
     os.environ["MIGRATION_DATABASE_URL"] = admin_url
     try:
-        subprocess.run(
-            ["alembic", "upgrade", "heads"],
-            check=True,
-            cwd=str(Path(__file__).resolve().parent.parent),
-        )
+        # Check if migrations are already applied (e.g., in CI workflow)
+        # by checking the alembic_version table. If it exists and has entries,
+        # skip running migrations to avoid conflicts.
+        import psycopg
+        admin_url_psycopg = admin_url.replace("postgresql+psycopg://", "postgresql://")
+        try:
+            with psycopg.connect(admin_url_psycopg) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT version_num FROM alembic_version")
+                    row = cur.fetchone()
+                    if row:
+                        print(f"Migrations already applied (version: {row[0]}), skipping alembic upgrade")
+                    else:
+                        raise Exception("No alembic version found")
+        except Exception:
+            # Table doesn't exist or no version - run migrations
+            subprocess.run(
+                ["alembic", "upgrade", "heads"],
+                check=True,
+                cwd=str(Path(__file__).resolve().parent.parent),
+            )
         yield url
     finally:
         if original_db_url is None:
