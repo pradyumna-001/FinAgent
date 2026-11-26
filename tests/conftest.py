@@ -306,6 +306,10 @@ def finagent_app_role(migrated_db_url: str, admin_db_url: str) -> Generator[str,
             # Extract host/port from admin_db_url
             host_port = admin_db_url.split('@', 1)[1]
             yield f"postgresql+asyncpg://finagent_app:finagent_app_pwd@{host_port}"
+        elif _workflow_provided_db:
+            # Use CI-provided database URL with finagent_app credentials
+            host_port = admin_db_url.split('@', 1)[1]
+            yield f"postgresql+asyncpg://finagent_app:finagent_app_pwd@{host_port}"
         else:
             yield "postgresql+asyncpg://finagent_app:finagent_app_pwd@localhost:5434/finagent"
     finally:
