@@ -21,19 +21,20 @@ _test_engine_loop_id = None
 def _get_test_engine():
     """Get or create the test engine singleton, recreating if event loop changes."""
     global _test_engine, _test_session_local, _test_engine_loop_id
-    current_loop = asyncio.get_event_loop()
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop - create one
+        current_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(current_loop)
     current_loop_id = id(current_loop)
 
     if _test_engine is None or _test_engine_loop_id != current_loop_id:
         # Event loop changed or first use - dispose old engine if exists
         if _test_engine is not None:
-            # Schedule disposal in the old loop (fire and forget)
-            try:
-                # We can't easily dispose in the old loop from here,
-                # so we just create a new engine. The old one will be GC'd.
-                pass
-            except Exception:
-                pass
+            # We can't easily dispose in the old loop from here,
+            # so we just create a new engine. The old one will be GC'd.
+            pass
 
         _test_engine = create_async_engine(
             os.environ.get("DATABASE_URL", DEFAULT_DB_URL_ASYNC),
@@ -208,7 +209,8 @@ def admin_db_url(pg_container) -> str:
 
 
 @pytest.fixture(scope="session")
-def finagent_app_role(migrated_db_url: str, admin_db_url: str) -> Generator[str, None, None]:
+def finagent_app_role(migrated_db_url: str, admin_db_url: str, event_loop) -> Generator[str, None, None]:
+    """Create finagent_app role and test data. Uses session-scoped event loop."""
 
     async def _admin() -> asyncpg.Connection:
         return await asyncpg.connect(admin_db_url)
@@ -300,7 +302,8 @@ def finagent_app_role(migrated_db_url: str, admin_db_url: str) -> Generator[str,
         finally:
             await conn.close()
 
-    asyncio.run(_setup())
+    # Use the session-scoped event loop instead of asyncio.run()
+    event_loop.run_until_complete(_setup())
     try:
         if USE_TESTCONTAINERS:
             # Extract host/port from admin_db_url
@@ -313,7 +316,7 @@ def finagent_app_role(migrated_db_url: str, admin_db_url: str) -> Generator[str,
         else:
             yield "postgresql+asyncpg://finagent_app:finagent_app_pwd@localhost:5434/finagent"
     finally:
-        asyncio.run(_teardown())
+        event_loop.run_until_complete(_teardown())
 
 
 @pytest.fixture
