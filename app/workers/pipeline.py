@@ -104,7 +104,7 @@ async def _dispatch_portfolio_pipelines() -> None:
 
     for manager_id in manager_ids:
         async with SessionLocal() as session:
-            await session.execute(text("SET LOCAL app.manager_id = :mid"), {"mid": manager_id})
+            await session.execute(text(f"SET LOCAL app.manager_id = {manager_id}"))
             result = await session.execute(select(Portfolio.id).where(Portfolio.manager_id == manager_id))
             portfolio_ids = [row[0] for row in result.all()]
 
@@ -166,9 +166,7 @@ def run_daily_pipeline_for_portfolio(
             return
 
         async with SessionLocal() as session:
-            await session.execute(text(
-                "SET LOCAL app.manager_id = :mid"
-            ), {"mid": manager_id})
+            await session.execute(text(f"SET LOCAL app.manager_id = {manager_id}"))
 
             existing = await session.execute(
                 select(MorningNote.id).where(

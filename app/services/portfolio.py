@@ -20,9 +20,7 @@ async def get_portfolio_tickers(portfolio_id: int, manager_id: int) -> list[str]
      """
 
     async with SessionLocal() as session:
-        await session.execute(text(
-            "SET LOCAL app.manager_id = :mid"
-        ), {"mid": manager_id})
+        await session.execute(text(f"SET LOCAL app.manager_id = {manager_id}"))
 
         stmt = select(Company.ticker).join(
             PortfolioHolding, PortfolioHolding.company_id == Company.id
