@@ -9,7 +9,8 @@ def _make_token(manager_id: int) -> str:
     return create_access_token({"sub": str(manager_id), "manager_id": manager_id})
 
 
-async def test_create_feedback_success_201(bound_engine: None, finagent_app_role: None) -> None:
+@pytest.mark.serial
+async def test_create_feedback_success_201(bound_engine: None, finagent_app_role: None, clean_db) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
@@ -48,7 +49,8 @@ async def test_create_feedback_missing_header_returns_401() -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_feedback_invalid_manager_id_returns_401(bound_engine: None, finagent_app_role: None) -> None:
+@pytest.mark.serial
+async def test_create_feedback_invalid_manager_id_returns_401(bound_engine: None, finagent_app_role: None, clean_db) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
@@ -69,7 +71,8 @@ async def test_create_feedback_invalid_manager_id_returns_401(bound_engine: None
 
 
 @pytest.mark.asyncio
-async def test_create_feedback_valid_manager_non_existent_note_id_returns_404(bound_engine: None, finagent_app_role: None) -> None:
+@pytest.mark.serial
+async def test_create_feedback_valid_manager_non_existent_note_id_returns_404(bound_engine: None, finagent_app_role: None, clean_db) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         note_id = 999
@@ -89,7 +92,8 @@ async def test_create_feedback_valid_manager_non_existent_note_id_returns_404(bo
 
 
 @pytest.mark.asyncio
-async def test_manager_a_posts_on_manager_b_note_returns_404(bound_engine: None, finagent_app_role: None) -> None:
+@pytest.mark.serial
+async def test_manager_a_posts_on_manager_b_note_returns_404(bound_engine: None, finagent_app_role: None, clean_db) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
@@ -111,7 +115,8 @@ async def test_manager_a_posts_on_manager_b_note_returns_404(bound_engine: None,
 
 
 @pytest.mark.asyncio
-async def test_create_feedback_missing_fields_returns_422(bound_engine: None, finagent_app_role: None) -> None:
+@pytest.mark.serial
+async def test_create_feedback_missing_fields_returns_422(bound_engine: None, finagent_app_role: None, clean_db) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
@@ -132,7 +137,8 @@ async def test_create_feedback_missing_fields_returns_422(bound_engine: None, fi
 
 
 @pytest.mark.asyncio
-async def test_create_feedback_invalid_action_returns_422(bound_engine: None, finagent_app_role: None) -> None:
+@pytest.mark.serial
+async def test_create_feedback_invalid_action_returns_422(bound_engine: None, finagent_app_role: None, clean_db) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
@@ -154,7 +160,8 @@ async def test_create_feedback_invalid_action_returns_422(bound_engine: None, fi
 
 
 @pytest.mark.asyncio
-async def test_create_feedback_short_justification_422(bound_engine: None, finagent_app_role: None) -> None:
+@pytest.mark.serial
+async def test_create_feedback_short_justification_422(bound_engine: None, finagent_app_role: None, clean_db) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
@@ -176,7 +183,8 @@ async def test_create_feedback_short_justification_422(bound_engine: None, finag
 
 
 @pytest.mark.asyncio
-async def test_create_duplicated_feedback_returns_409(bound_engine: None, finagent_app_role: None) -> None:
+@pytest.mark.serial
+async def test_create_duplicated_feedback_returns_409(bound_engine: None, finagent_app_role: None, clean_db) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/morning-notes", headers={"Authorization": f"Bearer {_make_token(2)}"})
