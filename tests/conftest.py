@@ -210,91 +210,127 @@ def admin_db_url(pg_container) -> str:
     return url.replace("postgresql+psycopg://", "postgresql://")
 
 
+# Extracted setup logic for reuse in clean_db fixture
+async def _setup_finagent_app_role(admin_db_url: str) -> None:
+    """Create finagent_app role and test data. Can be called multiple times.
+    
+    Includes retry logic for transient connection issues.
+    """
+    import asyncio
+    
+    max_retries = 3
+    retry_delay = 1.0
+    
+    for attempt in range(max_retries):
+        try:
+            conn = await asyncpg.connect(admin_db_url)
+            try:
+                # Create finagent_app role if it doesn't exist (migration was never merged)
+                # Use DO block for PostgreSQL 16 compatibility (CREATE ROLE IF NOT EXISTS added in PG 17)
+                await conn.execute("""
+                    DO $$
+                    BEGIN
+                        CREATE ROLE finagent_app NOSUPERUSER NOBYPASSRLS LOGIN;
+                    EXCEPTION WHEN duplicate_object THEN
+                        -- Role already exists, continue
+                    END $$;
+                """)
+                await conn.execute(
+                    "ALTER ROLE finagent_app WITH PASSWORD 'finagent_app_pwd'"
+                )
+                # Grant necessary permissions to finagent_app role
+                await conn.execute(
+                    "GRANT USAGE ON SCHEMA public TO finagent_app"
+                )
+                await conn.execute(
+                    "GRANT SELECT, INSERT, UPDATE, DELETE ON managers, companies, portfolios, portfolio_holdings, morning_notes, recommendations, feedbacks TO finagent_app"
+                )
+                await conn.execute(
+                    "GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO finagent_app"
+                )
+                alice_hash = hash_password("alice123")
+                bob_hash = hash_password("bob123")
+                await conn.execute(
+                    "INSERT INTO managers (id, name, email, password_hash) VALUES "
+                    f"(2, 'Alice', 'alice@example.com', '{alice_hash}'), "
+                    f"(3, 'Bob', 'bob@example.com', '{bob_hash}') "
+                    "ON CONFLICT (id) DO NOTHING"
+                )
+                await conn.execute(
+                    "INSERT INTO companies (id, ticker, name) VALUES "
+                    "(10, 'AAPL', 'Apple Inc') "
+                    "ON CONFLICT (id) DO NOTHING"
+                )
+                await conn.execute(
+                    "INSERT INTO portfolios (id, manager_id, name) VALUES "
+                    "(100, 2, 'Alice growth'), (200, 3, 'Bob value') "
+                    "ON CONFLICT (id) DO NOTHING"
+                )
+                await conn.execute(
+                    "INSERT INTO morning_notes "
+                    "(portfolio_id, manager_id, company_id, note_text) "
+                    "SELECT * FROM (VALUES "
+                    "(100, 2, 10, 'note-a1'), (100, 2, 10, 'note-a2'), "
+                    "(200, 3, 10, 'note-b1') "
+                    ") AS v(portfolio_id, manager_id, company_id, note_text) "
+                    "WHERE NOT EXISTS ("
+                    "SELECT 1 FROM morning_notes mn "
+                    "WHERE mn.portfolio_id = v.portfolio_id "
+                    "AND mn.note_text = v.note_text"
+                    ")"
+                )
+                await conn.execute(
+                    "INSERT INTO portfolio_holdings (portfolio_id, company_id, weight) "
+                    "SELECT * FROM (VALUES "
+                    "(100, 10, 0.5), (200, 10, 1.0) "
+                    ") AS v(portfolio_id, company_id, weight) "
+                    "WHERE NOT EXISTS ("
+                    "SELECT 1 FROM portfolio_holdings ph "
+                    "WHERE ph.portfolio_id = v.portfolio_id "
+                    "AND ph.company_id = v.company_id"
+                    ")"
+                )
+                await conn.execute(
+                    "INSERT INTO recommendations "
+                    "(morning_note_id, action, confidence, justification) "
+                    "SELECT id, 'buy', 0.8, 'Strong fundamentals' "
+                    "FROM morning_notes WHERE note_text = 'note-a1' "
+                    "AND NOT EXISTS (SELECT 1 FROM recommendations r WHERE r.morning_note_id = morning_notes.id)"
+                    "UNION ALL "
+                    "SELECT id, 'hold', 0.6, 'Mixed signals' "
+                    "FROM morning_notes WHERE note_text = 'note-b1' "
+                    "AND NOT EXISTS (SELECT 1 FROM recommendations r WHERE r.morning_note_id = morning_notes.id)"
+                )
+                await conn.execute(
+                    "INSERT INTO feedbacks "
+                    "(morning_note_id, manager_id, action, justification, comment) "
+                    "SELECT id, 2, 'buy', 'Strong fundamentals', 'really cool' "
+                    "FROM morning_notes WHERE note_text = 'note-a1' "
+                    "AND NOT EXISTS (SELECT 1 FROM feedbacks f WHERE f.morning_note_id = morning_notes.id)"
+                )
+                return  # Success
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                    continue
+                raise
+            finally:
+                await conn.close()
+        except Exception as e:
+            if attempt < max_retries - 1:
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+                continue
+            raise
+
+
 @pytest.fixture(scope="session")
 def finagent_app_role(migrated_db_url: str, admin_db_url: str, event_loop) -> Generator[str, None, None]:
     """Create finagent_app role and test data. Uses session-scoped event loop."""
-
+    
     async def _admin() -> asyncpg.Connection:
         return await asyncpg.connect(admin_db_url)
-
-    async def _setup() -> None:
-        conn = await _admin()
-        try:
-            # Create finagent_app role if it doesn't exist (migration was never merged)
-            # Use DO block for PostgreSQL 16 compatibility (CREATE ROLE IF NOT EXISTS added in PG 17)
-            await conn.execute("""
-                DO $$
-                BEGIN
-                    CREATE ROLE finagent_app NOSUPERUSER NOBYPASSRLS LOGIN;
-                EXCEPTION WHEN duplicate_object THEN
-                    -- Role already exists, continue
-                END $$;
-            """)
-            await conn.execute(
-                "ALTER ROLE finagent_app WITH PASSWORD 'finagent_app_pwd'"
-            )
-            alice_hash = hash_password("alice123")
-            bob_hash = hash_password("bob123")
-            await conn.execute(
-                "INSERT INTO managers (id, name, email, password_hash) VALUES "
-                f"(2, 'Alice', 'alice@example.com', '{alice_hash}'), "
-                f"(3, 'Bob', 'bob@example.com', '{bob_hash}') "
-                "ON CONFLICT (id) DO NOTHING"
-            )
-            await conn.execute(
-                "INSERT INTO companies (id, ticker, name) VALUES "
-                "(10, 'AAPL', 'Apple Inc') "
-                "ON CONFLICT (id) DO NOTHING"
-            )
-            await conn.execute(
-                "INSERT INTO portfolios (id, manager_id, name) VALUES "
-                "(100, 2, 'Alice growth'), (200, 3, 'Bob value') "
-                "ON CONFLICT (id) DO NOTHING"
-            )
-            await conn.execute(
-                "INSERT INTO morning_notes "
-                "(portfolio_id, manager_id, company_id, note_text) "
-                "SELECT * FROM (VALUES "
-                "(100, 2, 10, 'note-a1'), (100, 2, 10, 'note-a2'), "
-                "(200, 3, 10, 'note-b1') "
-                ") AS v(portfolio_id, manager_id, company_id, note_text) "
-                "WHERE NOT EXISTS ("
-                "SELECT 1 FROM morning_notes mn "
-                "WHERE mn.portfolio_id = v.portfolio_id "
-                "AND mn.note_text = v.note_text"
-                ")"
-            )
-            await conn.execute(
-                "INSERT INTO portfolio_holdings (portfolio_id, company_id, weight) "
-                "SELECT * FROM (VALUES "
-                "(100, 10, 0.5), (200, 10, 1.0) "
-                ") AS v(portfolio_id, company_id, weight) "
-                "WHERE NOT EXISTS ("
-                "SELECT 1 FROM portfolio_holdings ph "
-                "WHERE ph.portfolio_id = v.portfolio_id "
-                "AND ph.company_id = v.company_id"
-                ")"
-            )
-            await conn.execute(
-                "INSERT INTO recommendations "
-                "(morning_note_id, action, confidence, justification) "
-                "SELECT id, 'buy', 0.8, 'Strong fundamentals' "
-                "FROM morning_notes WHERE note_text = 'note-a1' "
-                "AND NOT EXISTS (SELECT 1 FROM recommendations r WHERE r.morning_note_id = morning_notes.id)"
-                "UNION ALL "
-                "SELECT id, 'hold', 0.6, 'Mixed signals' "
-                "FROM morning_notes WHERE note_text = 'note-b1' "
-                "AND NOT EXISTS (SELECT 1 FROM recommendations r WHERE r.morning_note_id = morning_notes.id)"
-            )
-            await conn.execute(
-                "INSERT INTO feedbacks "
-                "(morning_note_id, manager_id, action, justification, comment) "
-                "SELECT id, 2, 'buy', 'Strong fundamentals', 'really cool' "
-                "FROM morning_notes WHERE note_text = 'note-a1' "
-                "AND NOT EXISTS (SELECT 1 FROM feedbacks f WHERE f.morning_note_id = morning_notes.id)"
-            )
-        finally:
-            await conn.close()
 
     async def _teardown() -> None:
         conn = await _admin()
@@ -305,7 +341,7 @@ def finagent_app_role(migrated_db_url: str, admin_db_url: str, event_loop) -> Ge
             await conn.close()
 
     # Use the session-scoped event loop instead of asyncio.run()
-    event_loop.run_until_complete(_setup())
+    event_loop.run_until_complete(_setup_finagent_app_role(admin_db_url.replace("postgresql+psycopg://", "postgresql://")))
     try:
         if USE_TESTCONTAINERS:
             # Extract host/port from admin_db_url
@@ -353,34 +389,27 @@ def _event_loop_policy():
 
 
 @pytest.fixture
-async def clean_db(bound_engine):
-    """Provide a clean database state for each test by truncating test-specific tables.
-
-    Only cleans up tables that are NOT used by session-scoped fixtures (finagent_app_role).
-    Tables used by finagent_app_role: Manager, Company, Portfolio, PortfolioHolding, MorningNote, Recommendation, Feedback
-    This fixture only cleans up test-specific data AFTER the test runs.
+async def clean_db(bound_engine, admin_db_url):
+    """Provide a clean database state for each test by truncating and re-seeding.
+    
+    Truncates all tables and re-seeds with finagent_app_role data to ensure
+    a clean state for each test while preserving the test data.
     """
-    yield
-    from sqlalchemy import delete
-
-    from app.db.models import (
-        Company,
-        Feedback,
-        Manager,
-        MorningNote,
-        Portfolio,
-        PortfolioHolding,
-        Recommendation,
-    )
     from app.db.session import SessionLocal
-
+    from sqlalchemy import text
+    
+    # Truncate all tables and re-seed with finagent_app_role data
     async with SessionLocal() as session:
-        # Delete in correct order: children first
-        await session.execute(delete(PortfolioHolding))
-        await session.execute(delete(Feedback))
-        await session.execute(delete(Recommendation))
-        await session.execute(delete(MorningNote))
-        await session.execute(delete(Portfolio))
-        await session.execute(delete(Company))
-        await session.execute(delete(Manager))
+        await session.execute(text("""
+            TRUNCATE TABLE feedbacks, recommendations, morning_notes, 
+                portfolio_holdings, portfolios, companies, managers 
+            RESTART IDENTITY CASCADE
+        """))
         await session.commit()
+    
+    # Re-seed with finagent_app_role data
+    admin_url = admin_db_url.replace("postgresql+psycopg://", "postgresql://")
+    await _setup_finagent_app_role(admin_url)
+    
+    yield
+    # No additional cleanup needed - next test will truncate and re-seed

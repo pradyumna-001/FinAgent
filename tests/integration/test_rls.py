@@ -83,27 +83,8 @@ async def test_rls_managers_world_readable(finagent_app_role: str) -> None:
         await conn.close()
 
 
-@pytest.fixture
-async def clean_companies_only(bound_engine):
-    """Clean up only companies inserted by other tests, preserving finagent_app_role data."""
-    from sqlalchemy import delete
-
-    from app.db.models import Company
-    from app.db.session import SessionLocal
-
-    async with SessionLocal() as session:
-        # Delete companies that are NOT the AAPL company (id=10) created by finagent_app_role
-        await session.execute(delete(Company).where(Company.id != 10))
-        await session.commit()
-    yield
-    # Clean up after test as well
-    async with SessionLocal() as session:
-        await session.execute(delete(Company).where(Company.id != 10))
-        await session.commit()
-
-
 @pytest.mark.serial
-async def test_rls_companies_world_readable(finagent_app_role: str, clean_companies_only) -> None:
+async def test_rls_companies_world_readable(finagent_app_role: str, clean_db) -> None:
     conn = await _connect_as_role(finagent_app_role)
     try:
         await _set_manager_id(conn, "2")

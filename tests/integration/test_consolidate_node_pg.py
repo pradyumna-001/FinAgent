@@ -49,7 +49,11 @@ async def test_consolidate_computes_sector_weights(clean_db):
 
         # Clean up any existing test data - delete in correct order: children first
         async with SessionLocal() as session:
+            from app.db.models import Feedback, MorningNote, Recommendation
             await session.execute(delete(PortfolioHolding))
+            await session.execute(delete(Feedback))
+            await session.execute(delete(Recommendation))
+            await session.execute(delete(MorningNote))
             await session.execute(delete(Portfolio))
             await session.execute(delete(Company))
             await session.execute(delete(Manager))
@@ -97,8 +101,12 @@ async def test_consolidate_sector_concentration_flag(clean_db):
     async def _test(SessionLocal):
 
         async with SessionLocal() as session:
+            from app.db.models import Feedback, MorningNote, Recommendation
             # Clean up any existing data - delete in correct order: children first
             await session.execute(delete(PortfolioHolding))
+            await session.execute(delete(Feedback))
+            await session.execute(delete(Recommendation))
+            await session.execute(delete(MorningNote))
             await session.execute(delete(Portfolio))
             await session.execute(delete(Company))
             await session.execute(delete(Manager))
