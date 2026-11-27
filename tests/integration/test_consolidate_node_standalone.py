@@ -50,6 +50,7 @@ async def test_consolidate_computes_sector_weights(clean_db):
         from app.graph.state import create_initial_state_multi
 
         async with SessionLocal() as session:
+            from app.db.models import Feedback, MorningNote, Recommendation
             tickers_data = [
                 ("PETR4", "Petrobras", "Energy"),
                 ("VALE3", "Vale", "Materials"),
@@ -57,6 +58,9 @@ async def test_consolidate_computes_sector_weights(clean_db):
             ]
             # Clean up in correct order: children first - delete ALL to avoid conflicts between tests
             await session.execute(delete(PortfolioHolding))
+            await session.execute(delete(Feedback))
+            await session.execute(delete(Recommendation))
+            await session.execute(delete(MorningNote))
             await session.execute(delete(Portfolio))
             await session.execute(delete(Company))
             await session.execute(delete(Manager))
@@ -103,6 +107,7 @@ async def test_consolidate_sector_concentration_flag(clean_db):
         from app.graph.state import create_initial_state_multi
 
         async with SessionLocal() as session:
+            from app.db.models import Feedback, MorningNote, Recommendation
             tickers_data = [
                 ("PETR4", "Petrobras", "Energy"),
                 ("RECV3", "PetroReconcavo", "Energy"),
@@ -111,6 +116,9 @@ async def test_consolidate_sector_concentration_flag(clean_db):
             ]
             # Clean up in correct order: children first - delete ALL to avoid conflicts between tests
             await session.execute(delete(PortfolioHolding))
+            await session.execute(delete(Feedback))
+            await session.execute(delete(Recommendation))
+            await session.execute(delete(MorningNote))
             await session.execute(delete(Portfolio))
             await session.execute(delete(Company))
             await session.execute(delete(Manager))
@@ -157,6 +165,7 @@ async def test_consolidate_no_concentration_flag_under_40(clean_db):
         from app.graph.state import create_initial_state_multi
 
         async with SessionLocal() as session:
+            from app.db.models import Feedback, MorningNote, Recommendation
             tickers_data = [
                 ("PETR4", "Petrobras", "Energy"),
                 ("VALE3", "Vale", "Materials"),
@@ -165,6 +174,9 @@ async def test_consolidate_no_concentration_flag_under_40(clean_db):
             ]
             # Clean up in correct order: children first - delete ALL to avoid conflicts between tests
             await session.execute(delete(PortfolioHolding))
+            await session.execute(delete(Feedback))
+            await session.execute(delete(Recommendation))
+            await session.execute(delete(MorningNote))
             await session.execute(delete(Portfolio))
             await session.execute(delete(Company))
             await session.execute(delete(Manager))
@@ -210,12 +222,16 @@ async def test_consolidate_stale_data_flag(clean_db):
         from app.graph.state import create_initial_state_multi
 
         async with SessionLocal() as session:
+            from app.db.models import Feedback, MorningNote, Recommendation
             tickers_data = [
                 ("PETR4", "Petrobras", "Energy"),
                 ("VALE3", "Vale", "Materials"),
             ]
             # Clean up in correct order: children first - delete ALL to avoid conflicts between tests
             await session.execute(delete(PortfolioHolding))
+            await session.execute(delete(Feedback))
+            await session.execute(delete(Recommendation))
+            await session.execute(delete(MorningNote))
             await session.execute(delete(Portfolio))
             await session.execute(delete(Company))
             await session.execute(delete(Manager))
@@ -271,12 +287,16 @@ async def test_consolidate_no_stale_flag_when_all_fresh(clean_db):
         from app.graph.state import create_initial_state_multi
 
         async with SessionLocal() as session:
+            from app.db.models import Feedback, MorningNote, Recommendation
             tickers_data = [
                 ("PETR4", "Petrobras", "Energy"),
                 ("VALE3", "Vale", "Materials"),
             ]
             # Clean up in correct order: children first - delete ALL to avoid conflicts between tests
             await session.execute(delete(PortfolioHolding))
+            await session.execute(delete(Feedback))
+            await session.execute(delete(Recommendation))
+            await session.execute(delete(MorningNote))
             await session.execute(delete(Portfolio))
             await session.execute(delete(Company))
             await session.execute(delete(Manager))
@@ -346,11 +366,15 @@ async def test_consolidate_unknown_sector(clean_db):
         from app.graph.state import create_initial_state_multi
 
         async with SessionLocal() as session:
+            from app.db.models import Feedback, MorningNote, Recommendation
             tickers_data = [
                 ("PETR4", "Petrobras", None),
             ]
             # Clean up in correct order: children first - delete ALL to avoid conflicts between tests
             await session.execute(delete(PortfolioHolding))
+            await session.execute(delete(Feedback))
+            await session.execute(delete(Recommendation))
+            await session.execute(delete(MorningNote))
             await session.execute(delete(Portfolio))
             await session.execute(delete(Company))
             await session.execute(delete(Manager))
