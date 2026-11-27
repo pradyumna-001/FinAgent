@@ -45,6 +45,9 @@ async def stream_morning_note(
     manager: Annotated[Manager, Depends(get_current_manager)]
 ):
     async with session.begin():
+        await session.execute(
+            text(f"SET LOCAL app.manager_id = '{manager.id}'")
+        )
         stmt = select(MorningNote).where(
             MorningNote.id == note_id,
             MorningNote.manager_id == manager.id
