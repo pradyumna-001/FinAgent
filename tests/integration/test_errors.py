@@ -47,7 +47,7 @@ async def test_missing_header_returns_401_and_shape(
 
 @pytest.mark.asyncio
 async def test_validation_error_details_grouped_by_field(
-    bound_engine: None, finagent_app_role: None
+    bound_engine: None, finagent_app_role: None, clean_db: None
 ) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -68,7 +68,7 @@ async def test_validation_error_details_grouped_by_field(
 
 @pytest.mark.asyncio
 async def test_registry_miss_returns_no_active_run(
-    bound_engine: None, finagent_app_role: None
+    bound_engine: None, finagent_app_role: None, clean_db: None
 ) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -86,7 +86,7 @@ async def test_registry_miss_returns_no_active_run(
 
 @pytest.mark.asyncio
 async def test_nonexistent_note_returns_not_found_and_shape(
-    bound_engine: None, finagent_app_role: None
+    bound_engine: None, finagent_app_role: None, clean_db: None
 ) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
