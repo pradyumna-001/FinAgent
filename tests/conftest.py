@@ -213,14 +213,14 @@ def admin_db_url(pg_container) -> str:
 # Extracted setup logic for reuse in clean_db fixture
 async def _setup_finagent_app_role(admin_db_url: str) -> None:
     """Create finagent_app role and test data. Can be called multiple times.
-    
+
     Includes retry logic for transient connection issues.
     """
     import asyncio
-    
+
     max_retries = 3
     retry_delay = 1.0
-    
+
     for attempt in range(max_retries):
         try:
             conn = await asyncpg.connect(admin_db_url)
@@ -309,7 +309,7 @@ async def _setup_finagent_app_role(admin_db_url: str) -> None:
                     "AND NOT EXISTS (SELECT 1 FROM feedbacks f WHERE f.morning_note_id = morning_notes.id)"
                 )
                 return  # Success
-            except Exception as e:
+            except Exception:
                 if attempt < max_retries - 1:
                     await asyncio.sleep(retry_delay)
                     retry_delay *= 2  # Exponential backoff
@@ -317,7 +317,7 @@ async def _setup_finagent_app_role(admin_db_url: str) -> None:
                 raise
             finally:
                 await conn.close()
-        except Exception as e:
+        except Exception:
             if attempt < max_retries - 1:
                 await asyncio.sleep(retry_delay)
                 retry_delay *= 2  # Exponential backoff
@@ -328,7 +328,7 @@ async def _setup_finagent_app_role(admin_db_url: str) -> None:
 @pytest.fixture(scope="session")
 def finagent_app_role(migrated_db_url: str, admin_db_url: str, event_loop) -> Generator[str, None, None]:
     """Create finagent_app role and test data. Uses session-scoped event loop."""
-    
+
     async def _admin() -> asyncpg.Connection:
         return await asyncpg.connect(admin_db_url)
 
@@ -391,25 +391,26 @@ def _event_loop_policy():
 @pytest.fixture
 async def clean_db(bound_engine, admin_db_url):
     """Provide a clean database state for each test by truncating and re-seeding.
-    
+
     Truncates all tables and re-seeds with finagent_app_role data to ensure
     a clean state for each test while preserving the test data.
     """
-    from app.db.session import SessionLocal
     from sqlalchemy import text
-    
+
+    from app.db.session import SessionLocal
+
     # Truncate all tables and re-seed with finagent_app_role data
     async with SessionLocal() as session:
         await session.execute(text("""
-            TRUNCATE TABLE feedbacks, recommendations, morning_notes, 
-                portfolio_holdings, portfolios, companies, managers 
+            TRUNCATE TABLE feedbacks, recommendations, morning_notes,
+                portfolio_holdings, portfolios, companies, managers
             RESTART IDENTITY CASCADE
         """))
         await session.commit()
-    
+
     # Re-seed with finagent_app_role data
     admin_url = admin_db_url.replace("postgresql+psycopg://", "postgresql://")
     await _setup_finagent_app_role(admin_url)
-    
+
     yield
     # No additional cleanup needed - next test will truncate and re-seed
